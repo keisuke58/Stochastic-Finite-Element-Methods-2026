@@ -3,7 +3,7 @@
 
 **Author:** Keisuke Nishioka (10081049)  
 **Course:** Stochastic Finite Element Methods 2026  
-**Date:** April 20, 2026
+**Date:** May 26, 2026
 
 ---
 
@@ -190,6 +190,8 @@ The SDEG = 0 result (no cohesive damage) confirms that under the static design l
 
 ![PDF of max von Mises stress: PCE surrogate (blue), NN surrogate (orange), and Abaqus sample points (histogram). Both surrogates agree well. Degree 2.](figures/pce_uq/pdf_max_smises.pdf){width=80%}
 
+![PDF of max scalar damage variable (SDEG): all 66 Abaqus samples return SDEG = 0, confirming no cohesive damage initiation under any parameter realisation.](figures/pce_uq/pdf_max_sdeg.pdf){width=80%}
+
 ![PDF of max displacement: PCE vs NN surrogate comparison. Degree 2.](figures/pce_uq/pdf_max_disp.pdf){width=80%}
 
 ![PCE convergence with number of terms for max von Mises stress (degree 2).](figures/pce_uq/convergence_max_smises.pdf){width=80%}
@@ -197,6 +199,8 @@ The SDEG = 0 result (no cohesive damage) confirms that under the static design l
 ![PCE convergence for max displacement (degree 2).](figures/pce_uq/convergence_max_disp.pdf){width=80%}
 
 ![Sobol indices comparison: degree 2 (66 samples) vs degree 3 (286 samples) for max von Mises stress. Results are virtually identical, confirming convergence.](figures/pce_uq_deg3/sobol_max_smises.pdf){width=80%}
+
+![Sobol sensitivity indices for max displacement (degree 3). $E_1$ dominance is confirmed independently of polynomial degree.](figures/pce_uq_deg3/sobol_max_disp.pdf){width=80%}
 
 ![PDF comparison degree 3: max von Mises stress surrogate vs Abaqus samples.](figures/pce_uq_deg3/pdf_max_smises.pdf){width=80%}
 
@@ -276,19 +280,25 @@ Non-intrusive PCE with sparse Smolyak quadrature was successfully applied to qua
 ## Appendix B: File Structure
 
 ```
-Payload2026/
-├── src/
-│   ├── pce_driver.py          # PCE UQ main driver
-│   ├── extract_pce_qoi.py     # Abaqus Python QoI extractor
-│   └── reliability_analysis.py # Post-processing & plots
-├── abaqus_work/
-│   ├── pce_uq/                # degree=2, 66 jobs
-│   │   ├── PCE-S0000/ … PCE-S0065/
-│   │   └── pce_results.json
-│   └── pce_uq_deg3/           # degree=3, 286 jobs
-│       ├── PCE-S0000/ … PCE-S0285/
-│       └── pce_results.json
-└── figures/
-    ├── pce_uq/                # Sobol, PDF, convergence plots (deg=2)
-    └── pce_uq_deg3/           # Sobol, PDF, convergence plots (deg=3)
+Stochastic-Finite-Element-Methods-2026/
+  pce_driver.py              # PCE UQ main driver (Smolyak quadrature, chaospy)
+  extract_pce_qoi.py         # Abaqus Python QoI extractor (odbAccess)
+  reliability_analysis.py    # Post-processing, Sobol indices & plots
+  report.md / report.pdf     # This report
+  slides.md / slides.pdf     # Presentation slides
+  figures/
+    pce_uq/                  # Sobol, PDF, convergence plots (degree=2, 66 jobs)
+      sobol_max_smises.pdf
+      sobol_max_disp.pdf
+      sobol_max_sdeg.pdf
+      pdf_max_smises.pdf
+      pdf_max_disp.pdf
+      pdf_max_sdeg.pdf
+      convergence_max_smises.pdf
+      convergence_max_disp.pdf
+      convergence_max_sdeg.pdf
+    pce_uq_deg3/             # Same plots for degree=3 (286 jobs)
+      [same structure as pce_uq/]
 ```
+
+Abaqus simulation results (ODB files, ~293 MB each) are stored on the LUH compute server and are not included in this repository due to size constraints.
