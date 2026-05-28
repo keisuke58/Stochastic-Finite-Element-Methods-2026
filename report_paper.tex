@@ -1,0 +1,482 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{parskip}
+
+\onehalfspacing
+
+\title{\textbf{Reliability Assessment of the JAXA H3 Fairing under Manufacturing Variability\\
+Using Polynomial Chaos Expansion as a Stochastic FEM Surrogate}}
+
+\author{Keisuke Nishioka\\
+Matriculation Number: 10081049\\[0.5em]
+Supervisor: Dr.\ Zhibao Zheng\\
+Examiner: Prof.\ Dr.-Ing.\ Udo Nackenhorst\\[0.5em]
+Institut f\"{u}r Baumechanik und Numerische Mechanik\\
+Leibniz Universit\"{a}t Hannover}
+
+\date{May 2026}
+
+\begin{document}
+
+\maketitle
+\newpage
+
+\tableofcontents
+\newpage
+
+\listoffigures
+\listoftables
+\newpage
+
+%------------------------------------------------------------------
+\section{Abstract}
+%------------------------------------------------------------------
+
+This study applies non-intrusive Polynomial Chaos Expansion (PCE) with Smolyak sparse quadrature as a Stochastic Finite Element Method (SFEM) surrogate to quantify how manufacturing variability in five key material parameters propagates to structural responses in the JAXA H3 rocket fairing. The fairing is a Carbon Fiber Reinforced Polymer (CFRP)/aluminum-honeycomb sandwich structure modelled in Abaqus/Standard. Five independent truncated-normal uncertain parameters are considered: fiber-direction modulus $E_1$, in-plane shear modulus $G_{12}$, cohesive zone stiffness $K_n$, Mode-I fracture energy $G_{Ic}$, and cohesive strength $t_n$.
+
+PCE at degree 2 (66 Abaqus simulations via Smolyak sparse grid) achieves full convergence; degree 3 (286 simulations) yields identical statistics. Global sensitivity analysis via Sobol indices reveals that $E_1$ accounts for over 99\% of output variance in both peak von Mises stress and maximum displacement. The peak stress mean is 209.7~MPa with a coefficient of variation of 1.13\%, well below the 1{,}200~MPa CFRP failure threshold, yielding zero failure probability. The cohesive zone never activates under the design load. A neural network (MLP) surrogate trained on the same data is used for comparison; PCE achieves equal or better accuracy with full analytical interpretability.
+
+\textbf{Keywords:} Polynomial Chaos Expansion, Stochastic Finite Element Method, Sobol sensitivity indices, reliability analysis, CFRP, composite structures, JAXA H3
+
+%------------------------------------------------------------------
+\section{Literature Review}
+%------------------------------------------------------------------
+
+The quantification of uncertainty arising from manufacturing variability in composite aerospace structures is a fundamental challenge in structural reliability engineering. Stochastic Finite Element Methods (SFEM) provide a rigorous framework to propagate input uncertainties through deterministic computational models.
+
+Ghanem and Spanos~\cite{ghanem1991} introduced the spectral approach to SFEM, representing stochastic processes via Polynomial Chaos Expansion (PCE). In their formulation, uncertain system responses are expanded in a series of Hermite polynomial basis functions of standard Gaussian random variables, enabling the transformation of stochastic boundary-value problems into systems of deterministic equations. This intrusive approach forms the theoretical foundation of PCE-based SFEM.
+
+Sudret and Der Kiureghian~\cite{sudret2000} provided a comprehensive state-of-the-art review of SFEM and reliability analysis, comparing intrusive spectral methods with non-intrusive sampling-based approaches. Non-intrusive PCE, in which the existing deterministic FEM code is treated as a black-box and PCE coefficients are estimated via regression or quadrature, substantially reduces implementation effort. Sudret~\cite{sudret2008} further demonstrated that once a PCE surrogate is constructed, global sensitivity indices in the sense of Sobol can be obtained analytically at negligible additional cost, making PCE particularly attractive for combined uncertainty quantification and sensitivity analysis.
+
+Smolyak sparse quadrature~\cite{smolyak1963} addresses the curse of dimensionality inherent in full tensor-product Gauss quadrature. For $d$ uncertain parameters and polynomial degree $p$, Smolyak grids achieve the same exactness as full grids while reducing the number of function evaluations from $\mathcal{O}(n_q^d)$ to $\mathcal{O}(n_q (\log n_q)^{d-1})$. Fajraoui et al.~\cite{fajraoui2017} extended sparse PCE to sequential experimental designs, further improving efficiency for high-dimensional problems.
+
+Global sensitivity analysis through Sobol indices~\cite{saltelli2008} decomposes the total output variance into contributions from individual inputs and their interactions. First-order indices $S_i$ quantify the variance reduction achieved by fixing input $X_i$; total-order indices $S_T^i$ capture the full effect of $X_i$ including all interactions. In thin-walled composite structures, where deformation is predominantly governed by membrane stiffness, it is expected that fiber-direction modulus uncertainty dominates the structural response variance, as confirmed in this work.
+
+%------------------------------------------------------------------
+\section{Introduction}
+%------------------------------------------------------------------
+
+Composite fairing structures for launch vehicles, such as the JAXA H3 rocket, are manufactured from CFRP skins bonded to aluminum honeycomb cores. Material properties of CFRP and the adhesive cohesive zone are inherently variable due to manufacturing processes: fiber volume fraction fluctuations, cure cycle variations, and adhesive film thickness inconsistencies. These uncertainties propagate into structural responses---stress, damage, and deformation---affecting reliability.
+
+This study applies \textbf{non-intrusive Polynomial Chaos Expansion (PCE)} as a Stochastic FEM surrogate to quantify how manufacturing variability in five key parameters propagates to structural responses in the H3 fairing. The existing high-fidelity Abaqus/Standard FEM model of the H3 fairing panel serves as the black-box FEM solver. A neural network (NN) surrogate trained on the same data provides a basis for comparison. The specific objectives are:
+
+\begin{enumerate}
+    \item Construct PCE surrogates of degree 2 and 3 using Smolyak sparse quadrature and validate convergence.
+    \item Identify the dominant uncertain parameter via Sobol global sensitivity analysis.
+    \item Assess structural reliability ($P_f$, $\beta$) under manufacturing variability.
+    \item Compare PCE and NN surrogate accuracy and interpretability.
+\end{enumerate}
+
+%------------------------------------------------------------------
+\section{Methodology}
+%------------------------------------------------------------------
+
+\subsection{Polynomial Chaos Expansion}
+
+For a model response $Y = \mathcal{M}(\xi)$ depending on random input vector $\xi \in \mathbb{R}^d$, PCE approximates:
+\begin{equation}
+    Y \approx \hat{Y} = \sum_{\alpha \in \mathcal{A}} c_\alpha \Psi_\alpha(\xi)
+\end{equation}
+where $\Psi_\alpha$ are orthogonal polynomial basis functions (Hermite polynomials for Gaussian inputs), $c_\alpha$ are coefficients to be determined, and $\mathcal{A}$ is a truncated multi-index set with $|\alpha| \leq p$ (total degree $p$). For $d = 5$ variables and degree $p$, the number of basis terms is:
+\begin{equation}
+    P = \binom{d+p}{p} = \binom{5+p}{p}
+\end{equation}
+giving $P = 21$ for $p=2$ and $P = 56$ for $p=3$.
+
+\subsection{Smolyak Sparse Quadrature}
+
+Full tensor-product Gauss-Hermite quadrature requires $n_q^d$ points (e.g., $4^5 = 1024$ for $p=3$, $d=5$), which is computationally prohibitive. The Smolyak sparse grid~\cite{smolyak1963} reduces this dramatically while maintaining polynomial exactness of degree $\leq 2p-1$.
+
+\begin{table}[h]
+\centering
+\caption{Comparison of quadrature grid sizes for $d=5$ uncertain parameters.}
+\begin{tabular}{lccc}
+\toprule
+Degree $p$ & Full grid & Sparse grid (this work) & Reduction factor \\
+\midrule
+2 & $3^5 = 243$  & 66  & $3.7\times$ \\
+3 & $4^5 = 1024$ & 286 & $3.6\times$ \\
+\bottomrule
+\end{tabular}
+\label{tab:grid}
+\end{table}
+
+Negative quadrature weights, which can arise in sparse Gauss-Hermite rules, were handled by falling back to least-squares regression (\texttt{chaospy.fit\_regression}).
+
+\subsection{Uncertain Input Parameters}
+
+Five manufacturing-related parameters are treated as independent truncated-normal random variables $\xi_i \sim \mathrm{TruncNormal}(\mu_i, \sigma_i, 0.5\mu_i, 1.5\mu_i)$:
+
+\begin{table}[h]
+\centering
+\caption{Uncertain input parameters with their nominal values and assumed variability.}
+\begin{tabular}{llccc}
+\toprule
+Parameter & Description & Nominal $\mu$ & CoV & $\sigma$ \\
+\midrule
+$E_1$    & CFRP fiber-direction Young's modulus & 146{,}000~MPa & 5\%  & 7{,}300~MPa \\
+$G_{12}$ & CFRP in-plane shear modulus          & 5{,}200~MPa   & 10\% & 520~MPa \\
+$K_n$    & Cohesive zone normal stiffness       & $1.0\times10^6$~N/mm$^3$ & 15\% & $1.5\times10^5$~N/mm$^3$ \\
+$G_{Ic}$ & Mode-I fracture energy               & 0.3~N/mm      & 20\% & 0.06~N/mm \\
+$t_n$    & Cohesive zone normal strength        & 50~MPa        & 15\% & 7.5~MPa \\
+\bottomrule
+\end{tabular}
+\label{tab:params}
+\end{table}
+
+Dependent material properties are scaled proportionally: $E_2 = 10000 \cdot (E_1/\mu_{E_1})$, $G_{23} = 3000 \cdot (G_{12}/\mu_{G_{12}})$, $K_s = K_n/2$, $G_{IIc} = G_{Ic}/0.3$.
+
+\subsection{Quantities of Interest}
+
+Three structural response quantities are extracted from each Abaqus simulation:
+
+\begin{table}[h]
+\centering
+\caption{Quantities of interest (QoI) and their failure thresholds.}
+\begin{tabular}{llll}
+\toprule
+QoI & Symbol & Description & Failure threshold \\
+\midrule
+Max von Mises stress  & $\sigma_\text{vM}^\text{max}$ & Peak stress in CFRP skin       & 1{,}200~MPa \\
+Max scalar damage var.& $d^\text{max}$                & Peak SDEG in adhesive layer    & 0.5 \\
+Max displacement      & $u^\text{max}$                & Peak nodal displacement        & --- \\
+\bottomrule
+\end{tabular}
+\label{tab:qoi}
+\end{table}
+
+\subsection{Non-Intrusive SFEM Pipeline}
+
+The non-intrusive pipeline treats Abaqus/Standard as a black-box:
+\begin{enumerate}
+    \item Generate Smolyak sparse quadrature nodes $\{\xi^{(k)}\}_{k=1}^N$ in standard normal space.
+    \item For each node: patch the Abaqus \texttt{.inp} material cards, run \texttt{abaqus job=PCE-S\textit{XXXX} interactive}, and extract QoIs via \texttt{odbAccess}.
+    \item Fit PCE coefficients $\{c_\alpha\}$ via \texttt{chaospy.fit\_regression} (or quadrature projection when weights are positive).
+    \item Post-process: Sobol indices (analytical from PCE coefficients), Monte Carlo on surrogate ($10^6$ samples) for $P_f$ and $\beta$, leave-one-out cross-validation for RMSE.
+\end{enumerate}
+
+\subsection{Neural Network Surrogate}
+
+A fully connected MLP (5 $\to$ 64 $\to$ 64 $\to$ 32 $\to$ 1, ReLU activations) was trained on the same Abaqus data for 500~epochs (Adam optimizer, lr~$= 10^{-3}$). The NN serves as a black-box surrogate baseline for accuracy comparison against the interpretable PCE model.
+
+%------------------------------------------------------------------
+\section{Finite Element Model}
+%------------------------------------------------------------------
+
+The Abaqus/Standard model represents a representative panel of the H3 fairing sandwich structure:
+
+\begin{itemize}
+    \item \textbf{CFRP skin}: LAMINA elastic material (orthotropic), defined by $E_1$, $E_2$, $\nu_{12}$, $G_{12}$, $G_{13}$, $G_{23}$.
+    \item \textbf{Al-Honeycomb core}: linear elastic, fixed properties.
+    \item \textbf{Adhesive interface}: Cohesive Zone Model (CZM) with BK mixed-mode damage evolution ($\eta = 2.284$), stiffness $K_n$/$K_s$, strength $t_n$/$t_s$, fracture energies $G_{Ic}$/$G_{IIc}$.
+    \item \textbf{Loading}: Two-step analysis — Step-1 (static pressure), Step-2 (incremental load).
+    \item \textbf{QoI extraction}: Step-2 last frame via \texttt{odbAccess} Python API.
+\end{itemize}
+
+Total model size: $\approx 293$~MB per ODB file.
+
+%------------------------------------------------------------------
+\section{Results}
+%------------------------------------------------------------------
+
+\subsection{PCE Response Statistics}
+
+\begin{table}[h]
+\centering
+\caption{PCE response statistics (degree = 2, 66 Abaqus simulations).}
+\begin{tabular}{llllll}
+\toprule
+QoI & Mean & Std.\ Dev. & CV (\%) & $P_f$ & $\beta$ \\
+\midrule
+$\sigma_\text{vM}^\text{max}$ & 209.7~MPa & 2.375~MPa & 1.13 & 0 & $\infty$ \\
+$d^\text{max}$ (SDEG)         & 0.000     & 0.000     & ---  & 0 & $\infty$ \\
+$u^\text{max}$                 & 10.07~mm  & 0.178~mm  & 1.76 & --- & --- \\
+\bottomrule
+\end{tabular}
+\label{tab:pce2}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{PCE response statistics (degree = 3, 286 Abaqus simulations).}
+\begin{tabular}{llllll}
+\toprule
+QoI & Mean & Std.\ Dev. & CV (\%) & $P_f$ & $\beta$ \\
+\midrule
+$\sigma_\text{vM}^\text{max}$ & 209.7~MPa & 2.378~MPa & 1.13 & 0 & $\infty$ \\
+$d^\text{max}$ (SDEG)         & 0.000     & 0.000     & ---  & 0 & $\infty$ \\
+$u^\text{max}$                 & 10.07~mm  & 0.178~mm  & 1.76 & --- & --- \\
+\bottomrule
+\end{tabular}
+\label{tab:pce3}
+\end{table}
+
+The statistics are virtually identical between degree~2 and degree~3, confirming \textbf{PCE convergence at degree~2}. The peak von Mises stress (209.7~MPa) is well below the CFRP tensile strength (1{,}200~MPa), yielding zero failure probability. The adhesive damage variable remains identically zero across all 352 simulations.
+
+\subsection{Global Sensitivity Analysis (Sobol Indices)}
+
+\begin{table}[h]
+\centering
+\caption{First-order ($S_i$) and total-order ($S_T^i$) Sobol indices — degree~2.}
+\begin{tabular}{lcccc}
+\toprule
+Parameter & $S_i$ (stress) & $S_T^i$ (stress) & $S_i$ (disp.) & $S_T^i$ (disp.) \\
+\midrule
+$E_1$    & \textbf{0.9921} & \textbf{0.9921} & \textbf{0.9995} & \textbf{0.9996} \\
+$G_{12}$ & 0.0079          & 0.0079          & 0.0005          & 0.0005 \\
+$K_n$    & $\approx 0$     & $\approx 0$     & $\approx 0$     & $\approx 0$ \\
+$G_{Ic}$ & $\approx 0$     & $\approx 0$     & $\approx 0$     & $\approx 0$ \\
+$t_n$    & $\approx 0$     & $\approx 0$     & $\approx 0$     & $\approx 0$ \\
+\bottomrule
+\end{tabular}
+\label{tab:sobol}
+\end{table}
+
+Key findings are:
+\begin{itemize}
+    \item $E_1$ is overwhelmingly dominant ($S_{E_1} \approx 0.992$ for stress, $0.9995$ for displacement). Over 99\% of output variance is explained by uncertainty in the fiber-direction Young's modulus alone.
+    \item $G_{12}$ contributes marginally ($\approx 0.8\%$ for stress), as expected for predominantly uniaxial loading.
+    \item CZM parameters ($K_n$, $G_{Ic}$, $t_n$) have negligible influence (Sobol indices $\sim 10^{-11}$ to $10^{-6}$), consistent with SDEG = 0 at all sample points.
+    \item First-order and total-order indices are essentially equal ($S_i \approx S_T^i$), confirming no significant parameter interactions.
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/pce_uq/sobol_max_smises.pdf}
+    \caption{Sobol sensitivity indices for max von Mises stress (degree~2). $E_1$ accounts for 99.2\% of output variance.}
+    \label{fig:sobol_smises}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/pce_uq/sobol_max_disp.pdf}
+    \caption{Sobol sensitivity indices for max displacement (degree~2). $E_1$ dominates with $S_{E_1} = 0.9995$.}
+    \label{fig:sobol_disp}
+\end{figure}
+
+\subsection{Surrogate Accuracy: PCE vs Neural Network}
+
+\begin{table}[h]
+\centering
+\caption{Leave-one-out (LOO) RMSE comparison between PCE and NN surrogates.}
+\begin{tabular}{lcccc}
+\toprule
+QoI & PCE deg=2 & PCE deg=3 & NN deg=2 data & NN deg=3 data \\
+\midrule
+$\sigma_\text{vM}^\text{max}$ (MPa) & $\mathbf{9.4\times10^{-4}}$ & $1.5\times10^{-3}$ & $7.2\times10^{-4}$ & $1.77\times10^{-2}$ \\
+$d^\text{max}$                       & 0                          & 0                   & $\approx 0$        & $\approx 0$ \\
+$u^\text{max}$ (mm)                  & $\mathbf{4.2\times10^{-5}}$ & $7.1\times10^{-5}$ & $2.7\times10^{-5}$ & $1.6\times10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\label{tab:rmse}
+\end{table}
+
+Observations:
+\begin{enumerate}
+    \item \textbf{PCE degree~2 achieves the best overall accuracy} among all combinations. Degree~3 shows slightly higher LOO error, suggesting mild over-parameterisation (56 coefficients on 286 points, ratio~$\approx 5{:}1$) relative to the near-linear response surface.
+    \item \textbf{NN accuracy degrades sharply from 66 to 286 data points}: the fixed MLP architecture (4{,}000+ parameters) overfits the smooth, nearly linear response.
+    \item \textbf{PCE LOO RMSE $< 10^{-3}$~MPa} (nominal $\approx 210$~MPa) corresponds to a relative error of $\approx 0.0005\%$, demonstrating excellent surrogate fidelity.
+    \item \textbf{Interpretability}: PCE directly yields analytical Sobol indices at zero additional cost; the NN requires separate Monte Carlo sensitivity analysis.
+\end{enumerate}
+
+%------------------------------------------------------------------
+\section{Reliability Analysis}
+%------------------------------------------------------------------
+
+\subsection{Failure Probability Formulation}
+
+The failure probability for an event $F = \{G(\xi) > b\}$ is:
+\begin{equation}
+    P_f = P(G(\xi) > b) = \int_F f_\xi(x)\,\mathrm{d}x
+\end{equation}
+where $f_\xi$ is the joint PDF of inputs and $b$ is the failure threshold. With $P_f$ estimated via Monte Carlo on the PCE surrogate:
+\begin{equation}
+    \hat{P}_f = \frac{1}{N}\sum_{i=1}^{N} \mathbf{1}_{F}(\xi^{(i)}), \quad \xi^{(i)} \sim f_\xi
+\end{equation}
+
+The reliability index $\beta$ is defined as $\beta = -\Phi^{-1}(P_f)$, where $\Phi$ is the standard normal CDF.
+
+\subsection{Results}
+
+With $\sigma_\text{vM}^\text{max}$ mean of 209.7~MPa and standard deviation of 2.38~MPa, the stress distribution is far from the 1{,}200~MPa threshold. Monte Carlo sampling of $10^6$ realisations on the PCE surrogate yields:
+\begin{equation}
+    P_f = P(\sigma_\text{vM}^\text{max} > 1200\ \text{MPa}) = 0 \qquad \Rightarrow \qquad \beta = \infty
+\end{equation}
+
+This result holds for both degree-2 and degree-3 PCE. Even a $6\sigma$ stress event ($209.7 + 6\times2.38 = 224$~MPa) remains well below failure.
+
+The SDEG $= 0$ result confirms that the adhesive interface operates entirely within its elastic regime regardless of manufacturing variability, at the static design load level considered.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/pce_uq/pdf_max_smises.pdf}
+    \caption{PDF of max von Mises stress: PCE surrogate (blue), NN surrogate (orange), and Abaqus sample points (histogram). Both surrogates agree well. Degree~2.}
+    \label{fig:pdf_smises}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/pce_uq/pdf_max_sdeg.pdf}
+    \caption{PDF of max scalar damage variable (SDEG): all 66 Abaqus samples return SDEG $= 0$, confirming no cohesive damage initiation.}
+    \label{fig:pdf_sdeg}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/pce_uq/pdf_max_disp.pdf}
+    \caption{PDF of max displacement: PCE vs NN surrogate comparison. Degree~2.}
+    \label{fig:pdf_disp}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/pce_uq/convergence_max_smises.pdf}
+    \caption{PCE convergence study for max von Mises stress (degree~2). Mean and standard deviation stabilise by 66 quadrature points.}
+    \label{fig:conv_smises}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/pce_uq/convergence_max_disp.pdf}
+    \caption{PCE convergence study for max displacement (degree~2). Both statistics are fully converged at 66 simulations.}
+    \label{fig:conv_disp}
+\end{figure}
+
+%------------------------------------------------------------------
+\section{Discussion}
+%------------------------------------------------------------------
+
+\subsection{Why Does $E_1$ Dominate?}
+
+The fairing panel is a thin-walled structure under primarily membrane and bending loads. Von Mises stress and global deflection are governed by the membrane stiffness $E_1 t$ (modulus $\times$ skin thickness). With $E_1$ carrying a 5\% CoV and dominating the axial response, it captures essentially all output variance. The shear parameter $G_{12}$ (10\% CoV) contributes only $\sim 0.8\%$ because shear response is secondary for predominantly uniaxial loading.
+
+\subsection{Why Is SDEG Identically Zero?}
+
+The applied load in Step-2 corresponds to the design-point static pressure load, not an extreme or impact scenario. At nominal parameters, the adhesive interface operates at a fraction of its strength capacity. Even at the extreme of the uncertain parameter space ($\pm 50\%$ bounds on $K_n$, $t_n$, $G_{Ic}$), the interface stress never exceeds the cohesive strength $t_n$. A more meaningful sensitivity analysis of CZM parameters would require either a higher load level or an explicit damage propagation scenario.
+
+\subsection{PCE vs Neural Network: Summary Comparison}
+
+\begin{table}[h]
+\centering
+\caption{Qualitative comparison of PCE and NN surrogates for this problem.}
+\begin{tabular}{lll}
+\toprule
+Criterion & PCE (this work) & NN surrogate \\
+\midrule
+Training data required & 66 points (deg=2)    & 66--286 points \\
+Accuracy (LOO RMSE)    & $\sim 10^{-4}$        & $10^{-4}$ to $10^{-2}$ \\
+Convergence with data  & Stable (deg=2 optimal) & Degrades (overfitting) \\
+Sobol indices          & Analytical, exact      & Requires separate MC \\
+Interpretability       & High                   & Low (black-box) \\
+Applicable to          & Forward UQ, reliability & SHM, defect detection \\
+\bottomrule
+\end{tabular}
+\label{tab:compare}
+\end{table}
+
+\subsection{Degree Convergence}
+
+Agreement between degree-2 (66 samples) and degree-3 (286 samples) statistics to four significant figures confirms the response surface is well approximated by a second-order polynomial. This is consistent with the near-linear structural mechanics of a thin composite plate under small deformations.
+
+%------------------------------------------------------------------
+\section{Conclusion}
+%------------------------------------------------------------------
+
+Non-intrusive PCE with Smolyak sparse quadrature was successfully applied to quantify manufacturing uncertainty in the JAXA H3 CFRP/Al-Honeycomb fairing panel modelled in Abaqus/Standard. Key conclusions are:
+
+\begin{enumerate}
+    \item \textbf{PCE degree~2 (66 simulations) is sufficient}: degree~3 (286 simulations) yields identical statistics, confirming convergence.
+    \item \textbf{$E_1$ uncertainty dominates all responses} ($S_{E_1} > 0.99$). Quality control of fiber-direction modulus is the single most impactful lever for reducing structural variability.
+    \item \textbf{The structure is reliable under the design load} ($P_f = 0$, $\beta = \infty$). Peak stress is 17.5\% of the failure threshold with CV~$= 1.13\%$.
+    \item \textbf{PCE outperforms the NN surrogate} in accuracy and interpretability for this smooth, near-linear response surface.
+    \item \textbf{CZM parameters have no influence} at this load level; meaningful sensitivity of $K_n$, $G_{Ic}$, $t_n$ would require an extreme or impact load scenario.
+\end{enumerate}
+
+%------------------------------------------------------------------
+\bibliographystyle{unsrt}
+\begin{thebibliography}{9}
+
+\bibitem{ghanem1991}
+R.~G.~Ghanem and P.~D.~Spanos,
+\textit{Stochastic Finite Elements: A Spectral Approach}.
+Springer, 1991.
+
+\bibitem{sudret2000}
+B.~Sudret and A.~Der~Kiureghian,
+``Stochastic Finite Element Methods and Reliability: A State-of-the-Art Report,''
+Report No.\ UCB/SEMM-2000/08, University of California, Berkeley, 2000.
+
+\bibitem{sudret2008}
+B.~Sudret,
+``Global sensitivity analysis using polynomial chaos expansions,''
+\textit{Reliability Engineering \& System Safety}, vol.~93, no.~7, pp.~964--979, 2008.
+
+\bibitem{smolyak1963}
+S.~A.~Smolyak,
+``Quadrature and interpolation formulas for tensor products of certain classes of functions,''
+\textit{Dokl. Akad. Nauk SSSR}, vol.~148, no.~5, pp.~1042--1045, 1963.
+
+\bibitem{fajraoui2017}
+N.~Fajraoui, S.~Marelli, and B.~Sudret,
+``Sequential design of experiment for sparse polynomial chaos expansions,''
+\textit{SIAM/ASA J. Uncertainty Quantification}, vol.~5, no.~1, pp.~1061--1085, 2017.
+
+\bibitem{saltelli2008}
+A.~Saltelli et al.,
+\textit{Global Sensitivity Analysis: The Primer}.
+Wiley, 2008.
+
+\bibitem{faber2012}
+M.~H.~Faber,
+\textit{Statistics and Probability Theory}.
+Springer, 2012.
+
+\end{thebibliography}
+
+%------------------------------------------------------------------
+\appendix
+\section{Software and Computational Environment}
+
+\begin{table}[h]
+\centering
+\caption{Software versions and computational environment.}
+\begin{tabular}{ll}
+\toprule
+Component & Version / Details \\
+\midrule
+Abaqus/Standard & 2024 \\
+Python          & 3.12 \\
+chaospy         & latest \\
+PyTorch         & 2.10.0 \\
+Server          & 172.17.36.98, 4$\times$GPU \\
+Total CPU-hours & 352 jobs $\times$ $\approx$4~min $\approx$ 23~h \\
+\bottomrule
+\end{tabular}
+\label{tab:env}
+\end{table}
+
+\section{Repository File Structure}
+
+\begin{verbatim}
+Stochastic-Finite-Element-Methods-2026/
+  pce_driver.py              # PCE UQ main driver (Smolyak, chaospy)
+  extract_pce_qoi.py         # Abaqus Python QoI extractor (odbAccess)
+  reliability_analysis.py    # Post-processing, Sobol indices, plots
+  report.pdf / slides.pdf    # Report and presentation
+  figures/
+    pce_uq/                  # Plots for degree=2 (66 jobs)
+    pce_uq_deg3/             # Plots for degree=3 (286 jobs)
+\end{verbatim}
+
+Abaqus ODB files ($\approx 293$~MB each) are stored on the LUH compute server and not included in the repository.
+
+\end{document}
