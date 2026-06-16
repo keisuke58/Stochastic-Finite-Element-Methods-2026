@@ -92,6 +92,8 @@ where $\Psi_\alpha$ are orthogonal polynomial basis functions (Hermite polynomia
 \end{equation}
 giving $P = 21$ for $p=2$ and $P = 56$ for $p=3$.
 
+The choice of a Hermite basis is dictated by the Gaussian input measure rather than being arbitrary: Hermite polynomials are orthogonal with respect to the standard-normal weight, and it is this orthogonality, not the polynomial form itself, that makes the expansion valuable. Because the basis is orthogonal, the coefficients $c_\alpha$ coincide with the spectral projections of the response, so the mean is read directly from $c_0$ and the variance from the sum of the remaining squared coefficients, $\sum_{\alpha \neq 0} c_\alpha^2\,\mathbb{E}[\Psi_\alpha^2]$. The Sobol indices follow by the same mechanism, as partial sums of these squared coefficients grouped according to the variables each multi-index $\alpha$ activates. This is the decisive practical advantage of PCE over a generic regression surrogate: the complete second-moment and global-sensitivity information is recovered analytically from the coefficients, without a single additional model evaluation.
+
 \subsection{Smolyak Sparse Quadrature}
 
 Full tensor-product Gauss-Hermite quadrature requires $n_q^d$ points (e.g., $4^5 = 1024$ for $p=3$, $d=5$), which is computationally prohibitive. The Smolyak sparse grid~\cite{smolyak1963} reduces this dramatically while maintaining polynomial exactness of degree $\leq 2p-1$.
@@ -134,6 +136,8 @@ $t_n$    & Cohesive zone normal strength        & 50~MPa        & 15\% & 7.5~MPa
 \end{table}
 
 Dependent material properties are scaled proportionally: $E_2 = 10000 \cdot (E_1/\mu_{E_1})$, $G_{23} = 3000 \cdot (G_{12}/\mu_{G_{12}})$, $K_s = K_n/2$, $G_{IIc} = G_{Ic}/0.3$.
+
+A truncated normal was preferred over an unbounded Gaussian for two reasons. Physically, stiffnesses and fracture energies are strictly positive, and an unbounded normal would assign finite probability to non-physical negative draws; the $[0.5\mu,\,1.5\mu]$ truncation additionally reflects that material accepted for flight hardware is screened against incoming-inspection limits, so extreme outliers are not representative of the qualified population. The assumed coefficients of variation follow the usual ordering for CFRP: the fiber-dominated modulus $E_1$ is the most tightly controlled (5\%), while the matrix- and interface-dominated quantities are progressively more variable (10--20\%). The proportional scaling of the dependent moduli is a modelling convenience that imposes perfect correlation on those quantities; its consequences, together with the independence assumed among the five primary variables, are examined critically in Section~\ref{sec:limits}.
 
 \subsection{Quantities of Interest}
 
@@ -241,13 +245,7 @@ $t_n$    & $\approx 0$     & $\approx 0$     & $\approx 0$     & $\approx 0$ \\
 \label{tab:sobol}
 \end{table}
 
-Key findings are:
-\begin{itemize}
-    \item $E_1$ is overwhelmingly dominant ($S_{E_1} \approx 0.992$ for stress, $0.9995$ for displacement). Over 99\% of output variance is explained by uncertainty in the fiber-direction Young's modulus alone.
-    \item $G_{12}$ contributes marginally ($\approx 0.8\%$ for stress), as expected for predominantly uniaxial loading.
-    \item CZM parameters ($K_n$, $G_{Ic}$, $t_n$) have negligible influence (Sobol indices $\sim 10^{-11}$ to $10^{-6}$), consistent with SDEG = 0 at all sample points.
-    \item First-order and total-order indices are essentially equal ($S_i \approx S_T^i$), confirming no significant parameter interactions.
-\end{itemize}
+The Sobol decomposition reveals a strongly anisotropic sensitivity structure rather than a diffuse spread of influence across the five inputs. The fiber-direction modulus $E_1$ alone explains 99.21\% of the variance in peak von Mises stress and 99.95\% of the variance in maximum displacement, and no other parameter reaches even the percent level. This concentration is not incidental but a mechanical consequence of how the panel carries load, developed in Section~\ref{sec:whye1}. The in-plane shear modulus $G_{12}$ is the only secondary contributor, yet it accounts for under 1\% of the stress variance despite carrying twice the coefficient of variation of $E_1$ (10\% against 5\%); the membrane-dominated kinematics of the panel simply do not transmit shear-stiffness scatter into the quantities of interest. The three cohesive-zone parameters register Sobol indices between $10^{-11}$ and $10^{-6}$, numerically indistinguishable from zero --- the direct counterpart of the damage variable being identically zero at every quadrature node (Section~\ref{sec:whysdeg}), since a parameter that never moves the output cannot, by construction, contribute to its variance. The near-exact equality of the first- and total-order indices ($S_i \approx S_T^i$) completes the picture: the inputs act additively with no resolvable interactions, the signature expected of a response that is essentially linear over the sampled range.
 
 \begin{figure}[h]
     \centering
@@ -280,13 +278,7 @@ $u^\text{max}$ (mm)                  & $\mathbf{4.2\times10^{-5}}$ & $7.1\times1
 \label{tab:rmse}
 \end{table}
 
-Observations:
-\begin{enumerate}
-    \item \textbf{PCE degree~2 achieves the best overall accuracy} among all combinations. Degree~3 shows slightly higher LOO error, suggesting mild over-parameterisation (56 coefficients on 286 points, ratio~$\approx 5{:}1$) relative to the near-linear response surface.
-    \item \textbf{NN accuracy degrades sharply from 66 to 286 data points}: the fixed MLP architecture (4{,}000+ parameters) overfits the smooth, nearly linear response.
-    \item \textbf{PCE LOO RMSE $< 10^{-3}$~MPa} (nominal $\approx 210$~MPa) corresponds to a relative error of $\approx 0.0005\%$, demonstrating excellent surrogate fidelity.
-    \item \textbf{Interpretability}: PCE directly yields analytical Sobol indices at zero additional cost; the NN requires separate Monte Carlo sensitivity analysis.
-\end{enumerate}
+Three features of the comparison in Table~\ref{tab:rmse} are worth drawing out. The PCE expansion at degree~2 attains the lowest leave-one-out error of any configuration, and, tellingly, its degree-3 counterpart performs slightly \emph{worse}: fitting 56 coefficients to 286 points introduces estimation variance in the redundant high-order terms without any compensating reduction in bias, which is the classic symptom of mild over-parameterisation on an almost-linear response. The neural network exhibits the same pathology far more sharply --- its error degrades by an order of magnitude between the 66- and 286-point sets --- because a fixed architecture carrying several thousand weights cannot avoid overfitting when the underlying map is this smooth. In absolute terms, a PCE leave-one-out RMSE below $10^{-3}$~MPa against a nominal stress of $\approx 210$~MPa is a relative error of roughly $5\times10^{-4}\%$, so the surrogate error is entirely negligible beside the manufacturing-induced response scatter it is meant to characterise. The interpretability gap reinforces the same conclusion: the PCE returns the Sobol indices analytically from its coefficients, whereas the network would require a separate Monte Carlo sensitivity study to recover the same information.
 
 %------------------------------------------------------------------
 \section{Reliability Analysis}
@@ -356,12 +348,18 @@ The SDEG $= 0$ result confirms that the adhesive interface operates entirely wit
 %------------------------------------------------------------------
 
 \subsection{Why Does $E_1$ Dominate?}
+\label{sec:whye1}
 
-The fairing panel is a thin-walled structure under primarily membrane and bending loads. Von Mises stress and global deflection are governed by the membrane stiffness $E_1 t$ (modulus $\times$ skin thickness). With $E_1$ carrying a 5\% CoV and dominating the axial response, it captures essentially all output variance. The shear parameter $G_{12}$ (10\% CoV) contributes only $\sim 0.8\%$ because shear response is secondary for predominantly uniaxial loading.
+The dominance of $E_1$ is best understood through a first-order propagation argument rather than treated as a numerical curiosity. For a response $Y$ that is smooth in the inputs, the output variance is approximated to first order by
+\begin{equation}
+    \mathrm{Var}(Y) \approx \sum_{i=1}^{d} \left( \frac{\partial Y}{\partial \xi_i} \right)^2 \sigma_{\xi_i}^2 ,
+\end{equation}
+so each parameter's contribution scales with the product of its local sensitivity \emph{and} its variance --- not with either quantity alone. The fairing panel carries the design pressure predominantly through in-plane membrane action, for which both the peak skin stress and the global deflection are set by the axial laminate stiffness $E_1 t$. The response is therefore close to linear in $E_1$, giving a large $\partial Y/\partial E_1$, while $E_1$ simultaneously carries a non-negligible 5\% manufacturing scatter; the product of the two places almost the entire output variance on this single parameter. The shear modulus $G_{12}$ is the instructive counter-example: although its 10\% CoV is twice that of $E_1$, the membrane-dominated kinematics make $\partial Y/\partial G_{12}$ small, so the larger input scatter is suppressed in the output and only $\sim 0.8\%$ of the stress variance survives. The sensitivity ranking is thus governed not by which parameter is most uncertain, but by which uncertainty the structure is mechanically configured to amplify --- a distinction that the raw Sobol numbers alone do not make explicit.
 
 \subsection{Why Is SDEG Identically Zero?}
+\label{sec:whysdeg}
 
-The applied load in Step-2 corresponds to the design-point static pressure load, not an extreme or impact scenario. At nominal parameters, the adhesive interface operates at a fraction of its strength capacity. Even at the extreme of the uncertain parameter space ($\pm 50\%$ bounds on $K_n$, $t_n$, $G_{Ic}$), the interface stress never exceeds the cohesive strength $t_n$. A more meaningful sensitivity analysis of CZM parameters would require either a higher load level or an explicit damage propagation scenario.
+That the cohesive interface remains undamaged across all 352 sampled configurations is a physical result with a clear load-margin explanation, but it also carries a methodological consequence that deserves to be stated plainly. The Step-2 load represents the static design-point pressure, comfortably within the elastic envelope of the adhesive: at nominal properties the interface traction stays below the cohesive strength $t_n$, and even at the $\pm 50\%$ truncation bounds on $K_n$, $t_n$ and $G_{Ic}$ the traction never reaches the damage-initiation criterion. Damage is therefore not merely improbable but absent from the entire sampled domain. The consequence is that the three cohesive parameters are \emph{structurally unidentifiable} in this study: because they never alter any QoI, no amount of additional sampling could assign them a non-zero Sobol index, and the nominally five-dimensional uncertainty problem collapses --- at this load level --- to an effectively one-dimensional problem in $E_1$. A study aimed at characterising the CZM parameters would have to raise the load into the damage-onset regime or introduce an explicit defect or impact scenario; under the present load, the most honest statement is that the data are simply uninformative about them.
 
 \subsection{PCE vs Neural Network: Summary Comparison}
 
@@ -383,23 +381,38 @@ Applicable to          & Forward UQ, reliability & SHM, defect detection \\
 \label{tab:compare}
 \end{table}
 
+The contrast in Table~\ref{tab:compare} should not be read as a generic claim that polynomial chaos is ``better'' than a neural network, but as a statement about the match between method and problem. PCE encodes a strong prior --- that the response is a low-order polynomial in the inputs --- and when that prior is correct, as it is for this smooth, membrane-dominated response, it extracts accurate statistics from very few samples and returns the sensitivity information for free. The MLP encodes almost no prior and must learn the response shape from data; with only 66--286 samples and several thousand weights it sits in a heavily over-parameterised regime, which is precisely why its out-of-sample error \emph{grows} when the training set is enlarged from 66 to 286 points. The two surrogates therefore occupy different niches rather than competing on a single scale: PCE for forward uncertainty quantification and reliability on smooth, low-dimensional responses, and data-driven networks for the high-dimensional, strongly nonlinear, or field-valued problems --- defect detection and structural health monitoring among them --- where a polynomial prior would be too restrictive to be useful.
+
 \subsection{Degree Convergence}
 
-Agreement between degree-2 (66 samples) and degree-3 (286 samples) statistics to four significant figures confirms the response surface is well approximated by a second-order polynomial. This is consistent with the near-linear structural mechanics of a thin composite plate under small deformations.
+That the degree-2 (66-sample) and degree-3 (286-sample) statistics agree to four significant figures is more than a convergence check; it quantifies the curvature of the response surface. Had the QoIs depended appreciably on second- or higher-order terms, the additional 220 simulations of the degree-3 grid would have shifted the mean or, more sensitively, the standard deviation. Their failure to do so confirms that a quadratic basis already saturates the achievable accuracy. This reading is reinforced by the leave-one-out results of Table~\ref{tab:rmse}, where the degree-3 surrogate is marginally \emph{less} accurate than degree~2 --- a signature of variance from fitting redundant high-order coefficients rather than of bias from an inadequate basis. For this class of smooth, small-deformation structural response, degree~2 is therefore not a compromise but the appropriate model order.
+
+\subsection{Limitations and Critical Reflection}
+\label{sec:limits}
+
+Several limitations qualify the conclusions above and define the regime in which they hold.
+
+First, the reported failure probability of exactly zero should be read as ``below the resolution of the analysis'' rather than as a literal guarantee of safety. Monte Carlo sampling of $10^6$ surrogate realisations can only resolve probabilities down to $\mathcal{O}(10^{-6})$, and, more fundamentally, the surrogate is evaluated over truncated-normal inputs bounded at $\pm 50\%$ of nominal. Events in the far tail of the material distribution --- precisely those that dominate genuine structural risk --- lie outside both the sampled domain and the range over which the PCE was fitted, where it cannot be trusted to extrapolate. The defensible statement is therefore that, under the assumed input model and design load, the mean stress lies more than 400 standard deviations below the failure threshold --- $(1200-209.7)/2.38 \approx 416\sigma$ --- so the failure probability is negligible \emph{within the model's resolution}.
+
+Second, the five inputs are treated as statistically independent, whereas the elastic constants of a CFRP ply share common physical drivers --- fiber volume fraction, cure quality --- and are in reality positively correlated. The proportional scaling applied to the dependent moduli imposes perfect correlation on those quantities while independence is assumed among the five primary variables, an internally inconsistent simplification. Because $E_1$ dominates so completely, the headline conclusions are robust to this assumption; however, a correlated input model would be required before the small $G_{12}$ contribution could be interpreted quantitatively.
+
+Third, the study models a single representative panel rather than the complete fairing. Boundary conditions, shell curvature, and load introduction at the panel edges are idealised, so the absolute stress level (209.7~MPa) should be regarded as representative of the panel coupon rather than as a certified margin for the flight structure.
+
+Fourth, only aleatory uncertainty in the material parameters is propagated. The epistemic error of the deterministic finite-element model itself --- mesh discretisation, the BK mixed-mode law, the linear-elastic honeycomb idealisation --- is not quantified and would add to the reported response variance in a complete uncertainty budget.
+
+Finally, surrogate accuracy is assessed by leave-one-out cross-validation on the quadrature samples rather than against an independent validation set. For a response this smooth the distinction is minor, but for stiffer nonlinearities an out-of-sample test would be necessary to exclude optimistic error estimates.
+
+None of these caveats overturns the central finding --- that fiber-direction modulus controls the structural variability and that the panel is comfortably reliable under the design load --- but each delimits the conditions under which it applies, and each points to a concrete extension: a correlated input model, a higher load level that activates the cohesive zone, and a full-fairing model with quantified discretisation error.
 
 %------------------------------------------------------------------
 \section{Conclusion}
 %------------------------------------------------------------------
 
-Non-intrusive PCE with Smolyak sparse quadrature was successfully applied to quantify manufacturing uncertainty in the JAXA H3 CFRP/Al-Honeycomb fairing panel modelled in Abaqus/Standard. Key conclusions are:
+Non-intrusive Polynomial Chaos Expansion with Smolyak sparse quadrature was applied to quantify how manufacturing variability propagates through an Abaqus/Standard model of the JAXA H3 CFRP/aluminum-honeycomb fairing panel. The study shows that a second-order expansion built from only 66 simulations already captures the full response statistics: a third-order expansion costing 286 simulations reproduces the mean and standard deviation to four significant figures and is, if anything, marginally less accurate out-of-sample. Degree~2 is thus identified as the correct model order for this smooth, near-linear response rather than as an economy measure --- a distinction that matters when defending the result, because it rests on the demonstrated curvature of the response surface, not merely on a cost trade-off.
 
-\begin{enumerate}
-    \item \textbf{PCE degree~2 (66 simulations) is sufficient}: degree~3 (286 simulations) yields identical statistics, confirming convergence.
-    \item \textbf{$E_1$ uncertainty dominates all responses} ($S_{E_1} > 0.99$). Quality control of fiber-direction modulus is the single most impactful lever for reducing structural variability.
-    \item \textbf{The structure is reliable under the design load} ($P_f = 0$, $\beta = \infty$). Peak stress is 17.5\% of the failure threshold with CV~$= 1.13\%$.
-    \item \textbf{PCE outperforms the NN surrogate} in accuracy and interpretability for this smooth, near-linear response surface.
-    \item \textbf{CZM parameters have no influence} at this load level; meaningful sensitivity of $K_n$, $G_{Ic}$, $t_n$ would require an extreme or impact load scenario.
-\end{enumerate}
+The sensitivity analysis yields a single, actionable message for manufacturing. The fiber-direction modulus $E_1$ governs more than 99\% of the variance in both peak stress and deflection, so tightening the quality control of $E_1$ --- through fiber-volume-fraction and cure consistency --- is by far the most effective lever for reducing structural variability, whereas tolerances on shear stiffness and on the adhesive parameters are, at this load level, of little consequence. Under the design pressure the panel is reliable by a wide margin, with a peak von Mises stress of 209.7~MPa at only 17.5\% of the CFRP strength and a stress coefficient of variation of 1.13\%, and with the cohesive interface never leaving its elastic regime.
+
+For this smooth, low-dimensional, and near-linear problem the PCE surrogate is preferable to the neural-network alternative on every axis that matters here --- data economy, accuracy, and the analytical availability of Sobol indices --- although that balance would shift towards data-driven surrogates for higher-dimensional or strongly nonlinear responses such as post-damage behaviour. The principal limitation of the present work is that the cohesive parameters remain unidentifiable because the design load never initiates damage; the natural continuation is therefore to repeat the analysis at a load level that activates the cohesive zone, under a correlated input model and a full-fairing geometry, so that the reliability of the bonded interface --- and not only of the skin --- can be assessed.
 
 %------------------------------------------------------------------
 \bibliographystyle{unsrt}
