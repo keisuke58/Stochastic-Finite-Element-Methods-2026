@@ -32,7 +32,7 @@
 | **Forward UQ** | PCE deg. 2/3 + Smolyak sparse quadrature | S₁(E₁) = 0.992 for max. von Mises stress; P_f ≈ 0, β → ∞ |
 | **Topic 6 — Bayesian inverse** | Conjugate Gaussian update with PCE surrogate likelihood | 10 noisy measurements shrink the posterior std of E₁ from 7 300 to 1 885 MPa (**74 %**) |
 | **Topic 9 — Random fields** | Karhunen–Loève expansion, anisotropic exponential kernel | Spatial averaging cuts the effective panel-modulus std from 7 300 to **≈4 700 MPa** — the scalar model is conservative for average-governed responses (input-side result) |
-| **Topic 13 — Surrogates** | PCE vs. Gaussian Process vs. Neural Network, N = 10–286 | PCE deg. 2 recovers the smooth response *exactly* (RMSE = 3×10⁻¹³ MPa); NN needs 10× more data |
+| **Topic 13 — Surrogates** | PCE vs. Gaussian Process vs. Neural Network, N = 10–286 | At N=66: GP 7.3×10⁻⁴ vs NN 3.6×10⁻¹ MPa (~500× apart). PCE deg. 2 is exact by construction — the reference response lies in its model class |
 
 <p align="center">
   <img src="figures/fairing_odb_mises.png" width="49%" alt="Von Mises stress field of the fairing panel">
