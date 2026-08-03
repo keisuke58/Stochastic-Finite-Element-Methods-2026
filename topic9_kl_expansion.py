@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 """
-Topic 9: Non-Gaussian Random Fields via Karhunen-Loeve Expansion.
+Topic 9: Spatially varying random field representation of E1 via KL expansion.
 
-Represents the spatially varying fiber-direction modulus E1(x,y) of
-the H3 fairing panel as a Gaussian random field, discretised via KL
-expansion, and assesses the effect on the PCE-based UQ results.
+Represents the fiber-direction modulus E1(x,y) of the H3 fairing panel as a
+Gaussian random field with an anisotropic exponential kernel, discretised via
+the Karhunen-Loeve expansion, and quantifies how spatial averaging attenuates
+the variability of the effective panel modulus relative to the scalar
+(perfectly correlated) model used in the forward study.
+
+Scope: this is an input-side study. The KL realisations are not propagated
+through the FE model, so the attenuation bounds the input variability seen by
+average-governed responses (e.g. global deflection) but says nothing directly
+about the peak von Mises stress, which is a local extreme.
+
+The field is Gaussian while the forward study uses a normal truncated to
+[0.5mu, 1.5mu]. For E1 (CoV = 5%) those bounds sit at mu +/- 10 sigma, so the
+two laws are numerically indistinguishable here.
 """
 import numpy as np
 import matplotlib
