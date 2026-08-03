@@ -67,6 +67,13 @@ def kl_sample(lam, phi, xi, mu=0.0, sigma=1.0):
 
 
 def explained_variance(lam, n_modes):
+    """
+    Cumulative fraction of total variance explained by the first n_modes.
+
+    `lam` must be the FULL eigenvalue spectrum: the denominator is the total
+    variance. Passing an already-truncated spectrum makes the ratio collapse
+    to 1.0 by construction.
+    """
     return np.cumsum(lam[:n_modes]) / lam.sum()
 
 
@@ -110,7 +117,9 @@ print(f"Saved: {OUTDIR}/kl_eigenvalue_decay.pdf")
 # ── Fig 2: First 4 KL mode shapes (medium correlation length) ─────────────
 lcx, lcy = 400, 300
 C = cov_matrix(coords, lcx, lcy, sigma2=SIG_E1**2)
-lam, phi = kl_decompose(C, n_modes=4)
+# keep the full spectrum: explained_variance() needs the total variance below
+lam_all, phi_all = kl_decompose(C)
+lam, phi = lam_all[:4], phi_all[:, :4]
 
 fig, axes = plt.subplots(2, 2, figsize=use(1.0, 0.8))
 for i, ax in enumerate(axes.flat):
@@ -124,7 +133,7 @@ for i, ax in enumerate(axes.flat):
     ax.set_aspect('equal')
     fig.colorbar(im, ax=ax, fraction=0.04)
 
-ev4 = explained_variance(lam, 4)[-1] * 100
+ev4 = explained_variance(lam_all, 4)[-1] * 100
 fig.suptitle(
     rf'First 4 KL Mode Shapes of $E_1(x,y)$  '
     rf'($l_{{cx}}=400,\,l_{{cy}}=300$ mm; {ev4:.1f}\% variance)',
