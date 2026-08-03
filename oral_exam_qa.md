@@ -350,5 +350,3 @@ PCE-based tolerance allocation (tighten E1 QC — the highest-leverage action).
 - **truncated normal**：剛性・破壊エネは正値＋検査上下限。lognormalも可。独立仮定は限界（相関ならNataf）。
 - **PCE>NN**は一般論でなく「問題に合致した事前知識」のため。NNは少標本で過剰適合。
 - **罠回避**：「高次ほど良い」と言わない／Pf=0を文字通り保証と言わない／PCEがNNに普遍的に勝るとは言わない。
-</content>
-</invoke>
