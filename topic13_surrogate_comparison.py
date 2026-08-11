@@ -196,7 +196,7 @@ for meds, los, his, col, lbl, ls in [
 ax.set_xlabel('Training set size $N$')
 ax.set_ylabel('Test RMSE [MPa]')
 ax.set_title('Surrogate Accuracy vs Training Data Size\n'
-             '(median ± IQR over 8 random seeds)')
+             f'(median $\\pm$ IQR over {N_REPEAT} random seeds)')
 ax.legend(fontsize=10)
 ax.set_xlim(8, 300)
 fig.tight_layout()
@@ -222,19 +222,23 @@ y_pce_mc   = true_model(xi_mc)                 # PCE "truth"
 y_gp_mean, y_gp_std = gpr66.predict(xi_mc, return_std=True)
 
 E1_axis = np.linspace(-3.5, 3.5, 300)
-stress_E1 = C0 + C1[0] * E1_axis
 
 fig, axes = plt.subplots(1, 2, figsize=use(1.0, 0.44))
 
-# Left: 1D slice along xi_E1, epistemic band from GP
-gpr66_1d = fit_gp(xi_calib[:, :1], y_calib)
-y1d_mean, y1d_std = gpr66_1d.predict(E1_axis[:, None], return_std=True)
-axes[0].plot(E1_axis, stress_E1, 'k-', lw=2.5, label='True PCE (aleatory variability)')
+# Left: 1D slice along xi_E1 at xi_-E1 = 0, epistemic band from the 5-D GP.
+# Fitting a 1-D GP on xi_E1 alone would fold the G12 aleatory spread (c2 =
+# 0.211 MPa) into the WhiteKernel, so its band would be ~30x the true
+# epistemic uncertainty and would not be an epistemic band at all.
+xi_slice = np.zeros((len(E1_axis), 5))
+xi_slice[:, 0] = E1_axis
+y1d_mean, y1d_std = gpr66.predict(xi_slice, return_std=True)
+stress_E1 = true_model(xi_slice)
+axes[0].plot(E1_axis, stress_E1, 'k-', lw=2.5, label='True response at $\\xi_{-E_1}=0$')
 axes[0].plot(E1_axis, y1d_mean, color=BLUE, lw=2.0, ls='--', label='GP mean')
 axes[0].fill_between(E1_axis, y1d_mean - 1.96*y1d_std, y1d_mean + 1.96*y1d_std,
                       color=BLUE, alpha=0.25, label='GP 95% CI (epistemic)')
 axes[0].scatter(xi_calib[:, 0], y_calib, s=15, c=GRAY, alpha=0.6, zorder=5,
-                label='Training points (Abaqus)')
+                label='Training points (projected)')
 axes[0].set_xlabel(r'$\xi_{E_1}$ (standard normal)')
 axes[0].set_ylabel(r'$\sigma_\mathrm{vM}^\mathrm{max}$ [MPa]')
 axes[0].set_title('Aleatory vs Epistemic Uncertainty\n(1D slice, $N=66$)')
@@ -268,7 +272,6 @@ print(f"Saved: {OUTDIR}/t13_epistemic_aleatory.pdf")
 # GP / NN: permutation importance (brute-force sensitivity)
 N_PERM = 5_000
 xi_perm = rng.standard_normal((N_PERM, 5))
-y_base_pce = C0 + np.einsum('j,ij', C1, xi_perm)  # PCE (linear approx)
 gpr66_5d = fit_gp(xi_calib, y_calib)
 nn66     = fit_nn(xi_calib, y_calib)
 y_base_gp  = gpr66_5d.predict(xi_perm)

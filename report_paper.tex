@@ -85,7 +85,7 @@ This study applies \textbf{non-intrusive Polynomial Chaos Expansion (PCE)} as a 
     \item Assess structural reliability ($P_f$, $\beta$) under manufacturing variability.
     \item Compare PCE and NN surrogate accuracy and interpretability.
     \item Perform Bayesian identification of $E_1$ from synthetic stress measurements using the PCE as a forward model (Section~\ref{sec:bayes_inline}; Appendix~\ref{app:bayes}).
-    \item Represent $E_1$ as a spatially varying Gaussian random field via KL expansion and quantify the spatial averaging effect on response variability (Appendix~\ref{app:kl}).
+    \item Represent $E_1$ as a spatially varying Gaussian random field via KL expansion and quantify how spatial averaging attenuates the variability of the effective panel modulus (Appendix~\ref{app:kl}).
     \item Systematically compare PCE, GP, and NN surrogates as a function of training data size, and decompose epistemic vs.\ aleatory uncertainty (Appendix~\ref{app:t13}).
 \end{enumerate}
 
@@ -366,14 +366,15 @@ This result holds for both degree-2 and degree-3 PCE. Even a $6\sigma$ stress ev
 
 The SDEG $= 0$ result confirms that the adhesive interface operates entirely within its elastic regime regardless of manufacturing variability, at the static design load level considered.
 
-\textit{Remark (spatial random field):} A spatially varying representation of $E_1$ via Karhunen--Lo\`{e}ve (KL) expansion (Appendix~\ref{app:kl}) shows that the spatially averaged modulus $\overline{E_1}$ has a standard deviation of $\approx 5{,}100$~MPa --- lower than the scalar point value of 7{,}300~MPa. Spatial averaging attenuates the effective structural variability; the scalar model used here is therefore \emph{conservative}. Figure~\ref{fig:kl_effvar_inline} illustrates this result.
+\textit{Remark (spatial random field):} A spatially varying representation of $E_1$ via Karhunen--Lo\`{e}ve (KL) expansion (Appendix~\ref{app:kl}) shows that the spatially averaged modulus $\overline{E_1}$ has a standard deviation of $\approx 4{,}700$~MPa at the medium correlation length --- appreciably lower than the scalar point value of 7{,}300~MPa. This is an \emph{input-side} result: averaging a correlated field over the panel attenuates the variability of the effective modulus, and it does so without any additional FE evaluation. Its consequence for the response must be stated carefully. For response quantities governed by the panel-average stiffness --- global deflection and the membrane response --- the homogeneous scalar model over-states the input variability and therefore over-states the response variance, so the scalar treatment is \emph{conservative} for those quantities. The same conclusion does \emph{not} follow automatically for the peak von Mises stress, which is a local extreme rather than an average: a heterogeneous field introduces stiffness gradients and local stress redistribution that can raise the peak even as the panel-average modulus varies less. Establishing whether the scalar model is conservative for the peak stress requires propagating mapped KL realisations through the FE model, which is beyond the present scope and is identified as future work in Section~\ref{sec:limits}. Figure~\ref{fig:kl_effvar_inline} illustrates the input-side result.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.78\textwidth]{figures/topic9_kl/kl_effective_variance.pdf}
     \caption{Standard deviation of the spatially averaged $\overline{E_1}$ vs.\ number of retained KL modes.
-    For all correlation lengths the effective variability falls below the scalar baseline (dashed),
-    confirming that the scalar UQ is conservative relative to a realistic random field model.}
+    For all correlation lengths the effective modulus variability falls below the scalar baseline (dashed),
+    and the shorter the correlation length the stronger the attenuation. This bounds the input
+    variability seen by average-governed responses; it does not by itself bound the peak stress.}
     \label{fig:kl_effvar_inline}
 \end{figure}
 
@@ -468,7 +469,7 @@ A systematic convergence study over training set sizes $N = 10, \ldots, 286$ (Ap
 \subsection{Bayesian Identification as a QC Feedback Loop}
 \label{sec:bayes_inline}
 
-The Sobol result --- $E_1$ explains $>99\%$ of the output variance --- has a direct inverse implication: the dominant source of variability is also the most identifiable. Using the PCE surrogate as a likelihood evaluator within a conjugate Gaussian update~\cite{tarantola2005,marzouk2009} (full derivation in Appendix~\ref{app:bayes}), the posterior distribution of $E_1$ given $k$ stress observations converges rapidly to the true value. Figure~\ref{fig:bayes_inline} shows the posterior mean and 95\% credible interval as a function of $k$: five measurements reduce the posterior standard deviation from 7{,}300~MPa (prior) to $\approx 5{,}300$~MPa; twenty measurements reduce it to 1{,}910~MPa, a 74\% reduction at essentially zero additional computational cost once the PCE is constructed. This positions the PCE surrogate not merely as a forward uncertainty propagation tool but as the computational engine of a real-time statistical process control loop: as panel batches are tested and stress measurements accumulate, the $E_1$ distribution is progressively refined, enabling tighter manufacturing tolerance allocation.
+The Sobol result --- $E_1$ explains $>99\%$ of the output variance --- has a direct inverse implication: the dominant source of variability is also the most identifiable. Using the PCE surrogate as a likelihood evaluator within a conjugate Gaussian update~\cite{tarantola2005,marzouk2009} (full derivation in Appendix~\ref{app:bayes}), the posterior distribution of $E_1$ given $k$ stress observations converges rapidly to the true value. Figure~\ref{fig:bayes_inline} shows the posterior mean and 95\% credible interval as a function of $k$: five measurements reduce the posterior standard deviation from 7{,}300~MPa (prior) to 2{,}582~MPa, ten measurements to 1{,}885~MPa (a 74\% reduction), and twenty to 1{,}356~MPa (81\%) --- all at essentially zero additional computational cost once the PCE is constructed. This positions the PCE surrogate not merely as a forward uncertainty propagation tool but as the computational engine of a real-time statistical process control loop: as panel batches are tested and stress measurements accumulate, the $E_1$ distribution is progressively refined, enabling tighter manufacturing tolerance allocation.
 
 \begin{figure}[ht]
     \centering
@@ -506,7 +507,7 @@ Non-intrusive Polynomial Chaos Expansion with Smolyak sparse quadrature was appl
 
 The sensitivity analysis yields a single, actionable message for manufacturing. The fiber-direction modulus $E_1$ governs more than 99\% of the variance in both peak stress and deflection, so tightening the quality control of $E_1$ --- through fiber-volume-fraction and cure consistency --- is by far the most effective lever for reducing structural variability, whereas tolerances on shear stiffness and on the adhesive parameters are, at this load level, of little consequence. Under the design pressure the panel is reliable by a wide margin, with a peak von Mises stress of 209.7~MPa at only 17.5\% of the CFRP strength and a stress coefficient of variation of 1.13\%, and with the cohesive interface never leaving its elastic regime.
 
-Three extensions deepen the analysis. Bayesian inverse identification (Section~\ref{sec:bayes_inline}; full derivation in Appendix~\ref{app:bayes}) shows that the $E_1$ dominance makes the parameter tractable to infer from as few as five panel measurements, positioning the PCE as the forward model in a real-time QC feedback loop. KL random-field analysis (Appendix~\ref{app:kl}) reveals that the scalar $E_1$ model is conservative: a spatially correlated field produces a lower effective response variance due to spatial averaging. The systematic surrogate comparison (Appendix~\ref{app:t13}) provides quantitative confirmation that PCE degree~2 is the uniquely appropriate surrogate for this problem, achieving machine-precision accuracy at $N=66$ where the neural network is 500 times less accurate.
+Three extensions deepen the analysis. Bayesian inverse identification (Section~\ref{sec:bayes_inline}; full derivation in Appendix~\ref{app:bayes}) shows that the $E_1$ dominance makes the parameter tractable to infer from as few as five panel measurements, positioning the PCE as the forward model in a real-time QC feedback loop. KL random-field analysis (Appendix~\ref{app:kl}) quantifies what the scalar $E_1$ assumption costs: spatial averaging of a correlated field lowers the standard deviation of the effective panel modulus from 7{,}300 to $\approx 4{,}700$~MPa, so the scalar treatment is conservative for average-governed responses such as global deflection --- though, as discussed in Section~\ref{sec:limits}, that argument does not extend to the peak stress without further FE evaluation. The systematic surrogate comparison (Appendix~\ref{app:t13}) confirms that PCE degree~2 is the appropriate surrogate for this problem: at $N=66$ the Gaussian Process reaches $7.3\times10^{-4}$~MPa and the neural network only $3.6\times10^{-1}$~MPa, a factor of about 500 between the two data-driven surrogates, while the PCE recovers the response to machine precision. That last figure reflects exact representability --- the reference response lies in the degree-2 polynomial class --- so the fair reading is not that PCE is universally superior but that a correct structural prior is worth far more than model flexibility when only tens of simulations are affordable.
 
 For this smooth, low-dimensional, and near-linear problem the PCE surrogate is preferable to the neural-network alternative on every axis that matters here --- data economy, accuracy, and the analytical availability of Sobol indices --- although that balance would shift towards data-driven surrogates for higher-dimensional or strongly nonlinear responses such as post-damage behaviour. The principal limitation of the present work is that the cohesive parameters remain unidentifiable because the design load never initiates damage; the natural continuation is therefore to repeat the analysis at a load level that activates the cohesive zone, under a correlated input model incorporating a KL random field for $E_1$ (Appendix~\ref{app:kl}), and with a full-fairing geometry, so that the reliability of the bonded interface --- and not only of the skin --- can be assessed.
 
@@ -664,7 +665,7 @@ True $E_1 = 153{,}000$~MPa; observed $y_\text{obs} = 212.22$~MPa. Posterior at $
 \end{figure}
 
 %------------------------------------------------------------------
-\section{Non-Gaussian Random Fields via Karhunen--Lo\`{e}ve Expansion}
+\section{Spatially Varying Random Field Representation of $E_1$ via Karhunen--Lo\`{e}ve Expansion}
 \label{app:kl}
 %------------------------------------------------------------------
 
@@ -679,6 +680,10 @@ where $(\tilde{\lambda}_i, \phi_i)$ are the normalised eigenpairs of the covaria
     C(x_1,y_1;\,x_2,y_2) = \sigma_{E_1}^2\,\exp\!\!\left(-\frac{|x_1{-}x_2|}{l_{cx}} - \frac{|y_1{-}y_2|}{l_{cy}}\right).
 \end{equation}
 Panel dimensions: $L_x = 600$~mm, $L_y = 400$~mm. Three correlation length cases studied: short ($l_{cx}{=}200, l_{cy}{=}150$~mm), medium ($l_{cx}{=}400, l_{cy}{=}300$~mm), long ($l_{cx}{=}1200, l_{cy}{=}800$~mm).
+
+\textit{Consistency with the scalar input model.} The field above is Gaussian, whereas the forward study of Section~\ref{sec:fem} draws $E_1$ from a normal distribution truncated to $[0.5\mu,\,1.5\mu]$. For $E_1$ the two are numerically indistinguishable: with $\mathrm{CoV} = 5\%$ the truncation bounds lie at $\mu \pm 10\sigma$, so the truncated and untruncated laws agree to far beyond the precision of any quantity reported here. No such equivalence would hold for the cohesive parameters, whose $\mathrm{CoV} = 50\%$ places the same relative bounds at $\mu \pm 1\sigma$; they are not represented as fields in this study.
+
+The eigenpairs are obtained by direct eigendecomposition of the covariance matrix sampled on a uniform $20 \times 15$ grid, i.e.\ a point-collocation (Nystr\"{o}m) discretisation of the Fredholm integral equation rather than the Galerkin projection. On a uniform grid the two differ only by the constant cell measure, which cancels in the explained-variance ratios reported below; the discrete eigenvectors are orthonormal in $\ell^2$ and reproduce the sampled covariance exactly as $C = \Phi \Lambda \Phi^{\mathsf{T}}$. The grid resolves the shortest correlation length studied with roughly six points per correlation length.
 
 \subsection{Results}
 
@@ -697,7 +702,7 @@ Panel dimensions: $L_x = 600$~mm, $L_y = 400$~mm. Three correlation length cases
 \begin{figure}[ht]
     \centering
     \includegraphics[width=\textwidth]{figures/topic9_kl/kl_sample_fields.pdf}
-    \caption{Six realisations of $E_1(x,y)$ with $M=10$ modes (medium correlation length, 87.3\% variance).}
+    \caption{Six realisations of $E_1(x,y)$ with $M=10$ modes (medium correlation length, 82.7\% variance).}
 \end{figure}
 
 %------------------------------------------------------------------
@@ -708,6 +713,8 @@ Panel dimensions: $L_x = 600$~mm, $L_y = 400$~mm. Three correlation length cases
 \subsection{Setup}
 
 Surrogates are trained on $N \in \{10, 15, 20, 30, 40, 66, 100, 150, 286\}$ random points drawn from $\mathcal{N}(0,I_5)$ and evaluated on a fixed test set of 20{,}000 points. Results are medians over 5 random seeds. The ``true'' function is the analytical PCE surrogate (degree~2) derived from the existing Abaqus calibration.
+
+\textit{What this experiment can and cannot show.} The reference function is itself a degree-2 polynomial in the Hermite basis, so a degree-2 PCE lies in a model class that contains it exactly. The $\mathcal{O}(10^{-13})$~MPa figure below is therefore a measure of \emph{exact representability} and of the conditioning of the regression --- it is not a generalisation error, and it must not be read as evidence that PCE is $10^{12}$ times more accurate than a neural network in any general sense. What the comparison does measure is the value of a correct structural prior under a severe data budget: given that the response really is smooth and near-linear, the polynomial basis extracts it from tens of samples, whereas the Gaussian Process must infer smoothness from the data and the network must infer the functional form as well. Had the reference response contained a feature outside the polynomial class --- a damage bifurcation, a threshold, a discontinuous derivative --- the ranking could reverse, and Section~\ref{sec:limits} identifies exactly that regime as the natural continuation of this work.
 
 \subsection{Results}
 
@@ -729,7 +736,7 @@ Neural Network   & $3.6 \times 10^{-1}$ \\
 \begin{figure}[ht]
     \centering
     \includegraphics[width=\textwidth]{figures/topic13_comparison/t13_epistemic_aleatory.pdf}
-    \caption{Left: GP epistemic uncertainty (posterior std) vs PCE truth on 1D slice at $N=66$. Right: epistemic band on propagated stress PDF. Epistemic contribution is $<5\%$ of aleatory at $N=66$.}
+    \caption{Left: GP epistemic uncertainty (posterior standard deviation of the 5-D GP, evaluated along $\xi_{E_1}$ with the remaining inputs at zero) against the true response at $N=66$. Right: the same epistemic spread applied to the propagated stress PDF. The epistemic contribution is $0.008$~MPa against an aleatory response standard deviation of $2.37$~MPa, i.e.\ $0.3\%$: at this training size the surrogate error is negligible beside the physical scatter.}
 \end{figure}
 
 \begin{figure}[ht]

@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 """
-Topic 9: Non-Gaussian Random Fields via Karhunen-Loeve Expansion.
+Topic 9: Spatially varying random field representation of E1 via KL expansion.
 
-Represents the spatially varying fiber-direction modulus E1(x,y) of
-the H3 fairing panel as a Gaussian random field, discretised via KL
-expansion, and assesses the effect on the PCE-based UQ results.
+Represents the fiber-direction modulus E1(x,y) of the H3 fairing panel as a
+Gaussian random field with an anisotropic exponential kernel, discretised via
+the Karhunen-Loeve expansion, and quantifies how spatial averaging attenuates
+the variability of the effective panel modulus relative to the scalar
+(perfectly correlated) model used in the forward study.
+
+Scope: this is an input-side study. The KL realisations are not propagated
+through the FE model, so the attenuation bounds the input variability seen by
+average-governed responses (e.g. global deflection) but says nothing directly
+about the peak von Mises stress, which is a local extreme.
+
+The field is Gaussian while the forward study uses a normal truncated to
+[0.5mu, 1.5mu]. For E1 (CoV = 5%) those bounds sit at mu +/- 10 sigma, so the
+two laws are numerically indistinguishable here.
 """
 import numpy as np
 import matplotlib
@@ -67,6 +78,13 @@ def kl_sample(lam, phi, xi, mu=0.0, sigma=1.0):
 
 
 def explained_variance(lam, n_modes):
+    """
+    Cumulative fraction of total variance explained by the first n_modes.
+
+    `lam` must be the FULL eigenvalue spectrum: the denominator is the total
+    variance. Passing an already-truncated spectrum makes the ratio collapse
+    to 1.0 by construction.
+    """
     return np.cumsum(lam[:n_modes]) / lam.sum()
 
 
@@ -110,7 +128,9 @@ print(f"Saved: {OUTDIR}/kl_eigenvalue_decay.pdf")
 # ── Fig 2: First 4 KL mode shapes (medium correlation length) ─────────────
 lcx, lcy = 400, 300
 C = cov_matrix(coords, lcx, lcy, sigma2=SIG_E1**2)
-lam, phi = kl_decompose(C, n_modes=4)
+# keep the full spectrum: explained_variance() needs the total variance below
+lam_all, phi_all = kl_decompose(C)
+lam, phi = lam_all[:4], phi_all[:, :4]
 
 fig, axes = plt.subplots(2, 2, figsize=use(1.0, 0.8))
 for i, ax in enumerate(axes.flat):
@@ -124,7 +144,7 @@ for i, ax in enumerate(axes.flat):
     ax.set_aspect('equal')
     fig.colorbar(im, ax=ax, fraction=0.04)
 
-ev4 = explained_variance(lam, 4)[-1] * 100
+ev4 = explained_variance(lam_all, 4)[-1] * 100
 fig.suptitle(
     rf'First 4 KL Mode Shapes of $E_1(x,y)$  '
     rf'($l_{{cx}}=400,\,l_{{cy}}=300$ mm; {ev4:.1f}\% variance)',

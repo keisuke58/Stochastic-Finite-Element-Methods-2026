@@ -65,7 +65,7 @@ prior_a = (XI_LO - 0) / 1.
 prior_b = (XI_HI - 0) / 1.
 prior_dist = truncnorm(a=prior_a, b=prior_b, loc=0, scale=1)
 
-# Synthetic experiment: "true" E1 is 2% above nominal
+# Synthetic experiment: "true" E1 is ~4.8% above nominal (= +0.96 sigma)
 E1_TRUE  = 153_000.   # MPa  (representative of a good but above-spec batch)
 XI_TRUE  = xi_from_E1(E1_TRUE)   # = 0.9589
 Y_TRUE   = pce_forward(XI_TRUE)  # ≈ 212.0 MPa
@@ -76,14 +76,18 @@ SIGMA_MEAS = 2.0   # MPa
 rng = np.random.default_rng(0)
 
 # ── Analytical Bayesian update (conjugate Gaussian) ────────────────────────
-# Observed stress (k repeated measurements from the same panel batch)
 def bayesian_update_analytical(y_obs_mean, k=1, sigma_meas=SIGMA_MEAS):
     """
     Conjugate Gaussian-Gaussian posterior for xi_E1.
     Prior: xi_E1 ~ N(0,1)
-    Likelihood: y | xi_E1 ~ N(C0 + C1*xi_E1, sigma_meas^2 / k)
+    Likelihood: ybar | xi_E1 ~ N(C0 + C1*xi_E1, sigma_meas^2 / k)
+
+    `y_obs_mean` must be the MEAN of k independent measurements, so that its
+    sampling variance really is sigma_meas^2 / k. Passing a single draw while
+    claiming k observations shrinks the credible interval without moving the
+    estimate towards the truth, leaving a bias that never vanishes.
     """
-    sigma_eff2 = sigma_meas**2 / k  # effective noise with k measurements
+    sigma_eff2 = sigma_meas**2 / k  # variance of the mean of k measurements
     h = C1_E1
 
     # Posterior parameters in xi-space
@@ -92,13 +96,25 @@ def bayesian_update_analytical(y_obs_mean, k=1, sigma_meas=SIGMA_MEAS):
     return mu_post, np.sqrt(sig_post2)
 
 
-# Generate single noisy observation
-y_obs = Y_TRUE + rng.normal(0, SIGMA_MEAS)
+# Independent noisy measurements of the same panel batch. A single nested pool
+# is drawn once so that the k-observation mean uses the first k draws: the
+# curves in Fig. 4 are then nested rather than independently re-sampled.
+K_MAX  = 50
+y_pool = Y_TRUE + rng.normal(0, SIGMA_MEAS, K_MAX)
+
+
+def y_bar(k):
+    """Mean of the first k independent measurements."""
+    return y_pool[:k].mean()
+
+
+y_obs = y_bar(1)   # single observation, used for the 2-D likelihood map
 print(f"True E1     : {E1_TRUE:,.0f} MPa  (xi = {XI_TRUE:.4f})")
 print(f"True stress : {Y_TRUE:.2f} MPa")
-print(f"Observed    : {y_obs:.2f} MPa  (noise = {y_obs-Y_TRUE:.2f} MPa)")
+print(f"Observed    : {y_obs:.2f} MPa  (noise = {y_obs-Y_TRUE:+.2f} MPa)")
+print(f"Mean of {K_MAX} : {y_bar(K_MAX):.2f} MPa  (noise = {y_bar(K_MAX)-Y_TRUE:+.2f} MPa)")
 
-mu_post_xi, sig_post_xi = bayesian_update_analytical(y_obs, k=1)
+mu_post_xi, sig_post_xi = bayesian_update_analytical(y_bar(1), k=1)
 mu_post_E1  = E1_from_xi(mu_post_xi)
 sig_post_E1 = SIG_E1 * sig_post_xi
 print(f"\n--- Posterior (k=1) ---")
@@ -117,7 +133,7 @@ ax.axvline(E1_TRUE / 1e3, color='k', lw=1.5, ls=':', alpha=0.6, label=f'True $E_
 
 colors_k = [BLUE, RED, GREEN]
 for k, col in zip([1, 5, 20], colors_k):
-    mu_xi, sig_xi = bayesian_update_analytical(y_obs, k=k)
+    mu_xi, sig_xi = bayesian_update_analytical(y_bar(k), k=k)
     mu_E1  = E1_from_xi(mu_xi)
     sig_E1 = SIG_E1 * sig_xi
     pdf = norm.pdf(E1_plot, mu_E1, sig_E1)
@@ -178,11 +194,11 @@ xi_G12_prior = rng.standard_normal(N_MC)
 stress_prior = pce_forward(xi_E1_prior, xi_G12_prior)
 
 # Posterior samples (k=5 measurements, analytical)
-mu_xi5, sig_xi5 = bayesian_update_analytical(y_obs, k=5)
+mu_xi5, sig_xi5 = bayesian_update_analytical(y_bar(5), k=5)
 xi_E1_post5 = rng.normal(mu_xi5, sig_xi5, N_MC)
 stress_post5 = pce_forward(xi_E1_post5, xi_G12_prior)
 
-mu_xi20, sig_xi20 = bayesian_update_analytical(y_obs, k=20)
+mu_xi20, sig_xi20 = bayesian_update_analytical(y_bar(20), k=20)
 xi_E1_post20 = rng.normal(mu_xi20, sig_xi20, N_MC)
 stress_post20 = pce_forward(xi_E1_post20, xi_G12_prior)
 
@@ -212,7 +228,7 @@ mu_E1s  = []
 lo95_E1s = []
 hi95_E1s = []
 for k in K_list:
-    mu_xi_, sig_xi_ = bayesian_update_analytical(y_obs, k=k)
+    mu_xi_, sig_xi_ = bayesian_update_analytical(y_bar(k), k=k)
     mu_ = E1_from_xi(mu_xi_)
     sig_ = SIG_E1 * sig_xi_
     mu_E1s.append(mu_)
