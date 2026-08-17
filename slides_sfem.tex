@@ -88,10 +88,11 @@ Five constants ($E_1,G_{12},K_n,G_{Ic},t_n$) are treated as \textbf{uncertain} (
 
 \begin{frame}{Approach at a glance}
 \begin{center}
-\includegraphics[width=\linewidth]{hero_sfem_pipeline.png}
+\includegraphics[width=0.94\linewidth]{hero_sfem_pipeline.png}
 \end{center}
-\vspace{-0.4em}
-{\footnotesize Non-intrusive pipeline: sample the five uncertain material parameters, propagate each draw through the deterministic Abaqus model, and recover the response distribution and Sobol indices. The stress field is illustrative; $E_1$ governs over 99\% of the variance.}
+\vspace{-0.6em}
+{\footnotesize Non-intrusive: sample the five parameters, propagate each draw through the
+deterministic Abaqus model, recover the response distribution and Sobol indices.}
 \end{frame}
 \note{Here is the whole approach on one slide. On the left, the five uncertain material parameters, each given as a Gaussian distribution. In the middle, the deterministic finite-element model, which we treat as a black box and evaluate at quadrature nodes; the stress field shown is illustrative. On the right, the two things we recover: the probability distribution of the maximum von Mises stress, and the Sobol sensitivity indices, which reveal that the first stiffness E1 governs more than ninety-nine percent of the output variance. Everything that follows is detail on these three stages.}
 
@@ -296,24 +297,20 @@ $u^\text{max}$ (mm)                 & $\mathbf{4.2\times10^{-5}}$ & $7.1\times10
 \begin{frame}[t]{Extension T9: non-Gaussian KL random field for $E_1$}
 \begin{columns}[T]
 \begin{column}{0.54\textwidth}
-\vspace{0.3em}
-Anisotropic exponential kernel, discretised by \textbf{KL expansion}:
-\[
-  C = e^{-|dx|/l_{cx}-|dy|/l_{cy}},\qquad
-  Z(x)=\sum_{i}^{M}\sqrt{\lambda_i}\phi_i(x)\zeta_i
-\]
-A Gaussian field admits negative stiffness $\Rightarrow$ \textbf{translation field}
-$H=F^{-1}(\Phi(Z))$, lognormal marginal, positive by construction.
-\vspace{0.3em}
-
-Transform preserves rank but \emph{not} linear correlation:
-$\rho_H=\frac{e^{\sigma_{\ln}^2\rho_Z}-1}{e^{\sigma_{\ln}^2}-1}$
---- distortion $3\!\times\!10^{-4}$ at CoV~5\%, $3.8\!\times\!10^{-2}$ at 60\%.
-\vspace{0.3em}
-
-Spatial averaging: $\sigma(\overline{E_1})\approx 4{,}700 < 7{,}300$~MPa.
+\small
+KL expansion of an anisotropic exponential kernel, then:
+\begin{itemize}\itemsep3pt
+  \item Gaussian field admits \textbf{negative stiffness} $\Rightarrow$
+        \textbf{translation field} $H=F^{-1}(\Phi(Z))$: lognormal, positive
+        by construction.
+  \item Preserves rank, \emph{not} linear correlation:
+        $\rho_H=\frac{e^{\sigma_{\ln}^2\rho_Z}-1}{e^{\sigma_{\ln}^2}-1}$
+        --- distortion $3\!\times\!10^{-4}$ (CoV 5\%) to
+        $3.8\!\times\!10^{-2}$ (60\%).
+  \item Spatial averaging: $\sigma(\overline{E_1})\approx 4{,}700 < 7{,}300$~MPa.
+\end{itemize}
 \begin{alertblock}{}
-Conservative for \textbf{average-governed} responses --- not proven for \emph{peak} stress.
+\footnotesize Conservative for \textbf{average-governed} responses --- not for peak stress.
 \end{alertblock}
 \end{column}
 \begin{column}{0.46\textwidth}
@@ -360,17 +357,17 @@ NN          & $3.6\times10^{-1}$\ MPa \\
 \begin{frame}[t]{Extension T6: $E_1$ dominance $\Rightarrow$ tractable Bayesian identification}
 \begin{columns}[T]
 \begin{column}{0.55\textwidth}
-\vspace{0.3em}
+\small
 PCE linear term: $\hat\sigma_\text{vM} = 209.7 + 2.365\,\xi_{E_1}$~MPa.
-
-Conjugate Gaussian update given $k$ stress measurements:
+Conjugate Gaussian update on the mean of $k$ measurements:
 \[
   \sigma_\text{post}(E_1) = \frac{\sigma_{E_1}}{\sqrt{1+k\,c_1^2/\sigma_\text{meas}^2}}
 \]
+\vspace{-0.5em}
 
-\vspace{0.3em}
-\textbf{Key result:} posterior std of $E_1$ falls from 7{,}300~MPa to
+\textbf{Key result:} posterior std falls from 7{,}300~MPa to
 2{,}582 ($k{=}5$), \textbf{1{,}885 ($k{=}10$, $-74\%$)}, 1{,}356 ($k{=}20$).
+\vspace{-0.2em}
 \begin{alertblock}{}
 \footnotesize Reduces \textbf{epistemic} uncertainty $\Rightarrow$ tolerance allocation.
 $P_f$ is already 0 at $416\sigma$, so reliability is \emph{unchanged}.
