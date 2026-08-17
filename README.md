@@ -31,7 +31,7 @@
 |---|---|---|
 | **Forward UQ** | PCE deg. 2/3 + Smolyak sparse quadrature | S₁(E₁) = 0.992 for max. von Mises stress; P_f ≈ 0, β → ∞ |
 | **Topic 6 — Bayesian inverse** | Conjugate Gaussian update with PCE surrogate likelihood | 10 noisy measurements shrink the posterior std of E₁ from 7 300 to 1 885 MPa (**74 %**) |
-| **Topic 9 — Random fields** | Karhunen–Loève expansion, anisotropic exponential kernel | Spatial averaging cuts the effective panel-modulus std from 7 300 to **≈4 700 MPa** — the scalar model is conservative for average-governed responses (input-side result) |
+| **Topic 9 — Non-Gaussian random fields** | KL expansion + lognormal translation field | Spatial averaging cuts the effective panel-modulus std from 7 300 to **≈4 700 MPa** — the scalar model is conservative for average-governed responses (input-side result) |
 | **Topic 13 — Surrogates** | PCE vs. Gaussian Process vs. Neural Network, N = 10–286 | At N=66: GP 7.3×10⁻⁴ vs NN 3.6×10⁻¹ MPa (~500× apart). PCE deg. 2 is exact by construction — the reference response lies in its model class |
 
 <p align="center">
@@ -49,16 +49,17 @@
 |---|---|---|---|
 | E₁ | 146 000 MPa | 5 % | Fiber-direction elastic modulus (CFRP) |
 | G₁₂ | 5 200 MPa | 10 % | In-plane shear modulus |
-| Kₙ | 1 000 N/mm³ | 50 % | Cohesive normal stiffness |
-| G_Ic | 0.5 N/mm | 50 % | Mode-I fracture energy |
-| tₙ | 50 MPa | 50 % | Cohesive tensile strength |
+| Kₙ | 1.0 × 10⁶ N/mm³ | 15 % | Cohesive normal stiffness |
+| G_Ic | 0.3 N/mm | 20 % | Mode-I fracture energy |
+| tₙ | 50 MPa | 15 % | Cohesive tensile strength |
 
 **Quantities of interest:** maximum von Mises stress, maximum displacement, maximum cohesive damage (SDEG).
 
 ## Repository Structure
 
 ```
-├── report_paper.tex / .pdf          # Main report (LaTeX, ~33 pages incl. appendices)
+├── report_paper.tex / .pdf          # Main report (elsarticle template, ~20 pages)
+├── References.bib                   # Bibliography for the report
 ├── slides_sfem.tex / .pdf           # Presentation slides (Beamer)
 ├── summary_ja.tex / .pdf            # Japanese summary / 日本語要約
 │

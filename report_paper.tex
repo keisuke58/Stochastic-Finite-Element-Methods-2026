@@ -1,284 +1,318 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[review,3p,times,12pt]{elsarticle}
 
-\usepackage[a4paper, margin=2.5cm]{geometry}
-\usepackage{amsmath, amssymb}
-\usepackage{graphicx}
+\usepackage{hyperref,amsmath,amsthm}
+\usepackage[noend]{algpseudocode}
+\usepackage{algorithmicx,algorithm}
 \usepackage{booktabs}
-\usepackage{hyperref}
-\usepackage{caption}
-\usepackage{subcaption}
-\usepackage{enumitem}
-\usepackage{setspace}
-\usepackage{parskip}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{subfig}
+\usepackage{amsfonts,amssymb}
+\usepackage{mathrsfs}
+\usepackage{bm}
+\newcommand{\bmm}[1]{\mbox{\boldmath{$#1$}}}
+\renewcommand{\eqref}[1]{\textup{{\normalfont Eq.\,(\ref{#1}}\normalfont)}}
+\allowdisplaybreaks[4]
+\newtheorem{remark}{Remark}
+\newcommand\figref{Fig.\,\ref}
 
-\onehalfspacing
+\journal{~}
 
-\title{\textbf{Reliability Assessment of the JAXA H3 Fairing under Manufacturing Variability\\
-Using Polynomial Chaos Expansion as a Stochastic FEM Surrogate}}
-
-\author{Keisuke Nishioka\\
-Matriculation Number: 10081049\\[0.5em]
-Supervisor: Dr.\ Zhibao Zheng\\
-Examiner: Prof.\ Dr.-Ing.\ Udo Nackenhorst\\[0.5em]
-Institut f\"{u}r Baumechanik und Numerische Mechanik\\
-Leibniz Universit\"{a}t Hannover}
-
-\date{May 2026}
+\bibliographystyle{BibStyle}
 
 \begin{document}
 
-\maketitle
-\newpage
+\begin{frontmatter}
 
-\tableofcontents
-\newpage
+    \title{Reliability Assessment of the JAXA H3 Fairing under Manufacturing
+    Variability Using Polynomial Chaos Expansion as a Stochastic FEM Surrogate}
 
-\listoffigures
-\listoftables
-\newpage
+    \author[a]{Keisuke Nishioka}
+    \ead{keisuke58@keio.jp}
+    \address[a]{Institut f\"{u}r Baumechanik und Numerische Mechanik,
+    Leibniz Universit\"{a}t Hannover}
 
-%------------------------------------------------------------------
-\section{Abstract}
-%------------------------------------------------------------------
+    \begin{abstract}
+        This study applies non-intrusive Polynomial Chaos Expansion (PCE) with Smolyak
+        sparse quadrature as a Stochastic Finite Element Method surrogate to quantify how
+        manufacturing variability in five material parameters propagates to the structural
+        response of the JAXA H3 rocket fairing, a CFRP/aluminium-honeycomb sandwich
+        structure modelled in Abaqus/Standard. A degree-2 expansion built from 66
+        simulations reproduces the response statistics of a degree-3 expansion costing 286
+        simulations to four significant figures, identifying degree~2 as the correct model
+        order rather than an economy measure. Sobol analysis shows that the fibre-direction
+        modulus $E_1$ accounts for 99.2\% of the variance in peak von Mises stress and
+        99.95\% of the variance in maximum displacement, while the three cohesive-zone
+        parameters are structurally unidentifiable because the adhesive never damages at the
+        design load. The peak stress is $209.7 \pm 2.38$~MPa against a 1{,}200~MPa strength,
+        a margin of 416 standard deviations. Three extensions build on the same surrogate:
+        Bayesian identification of $E_1$ from stress measurements, a non-Gaussian
+        translation random field constructed on a Karhunen--Lo\`{e}ve basis, and a
+        systematic comparison of stochastic and data-driven surrogates as a function of
+        training-set size.
+    \end{abstract}
 
-This study applies non-intrusive Polynomial Chaos Expansion (PCE) with Smolyak sparse quadrature as a Stochastic Finite Element Method (SFEM) surrogate to quantify how manufacturing variability in five key material parameters propagates to structural responses in the JAXA H3 rocket fairing. The fairing is a Carbon Fiber Reinforced Polymer (CFRP)/aluminum-honeycomb sandwich structure modelled in Abaqus/Standard. Five independent truncated-normal uncertain parameters are considered: fiber-direction modulus $E_1$, in-plane shear modulus $G_{12}$, cohesive zone stiffness $K_n$, Mode-I fracture energy $G_{Ic}$, and cohesive strength $t_n$.
+    \begin{keyword}
+        Polynomial chaos expansion \sep
+        Stochastic finite element method \sep
+        Sobol sensitivity indices \sep
+        Reliability analysis \sep
+        Karhunen--Lo\`{e}ve expansion \sep
+        CFRP composite structures
+    \end{keyword}
 
-PCE at degree 2 (66 Abaqus simulations via Smolyak sparse grid) achieves full convergence; degree 3 (286 simulations) yields identical statistics. Global sensitivity analysis via Sobol indices reveals that $E_1$ accounts for over 99\% of output variance in both peak von Mises stress and maximum displacement. The peak stress mean is 209.7~MPa with a coefficient of variation of 1.13\%, well below the 1{,}200~MPa CFRP failure threshold, yielding zero failure probability. The cohesive zone never activates under the design load. A neural network (MLP) surrogate trained on the same data is used for comparison; PCE achieves equal or better accuracy with full analytical interpretability.
-
-\textbf{Keywords:} Polynomial Chaos Expansion, Stochastic Finite Element Method, Sobol sensitivity indices, reliability analysis, CFRP, composite structures, JAXA H3
-
-%------------------------------------------------------------------
-\section{Literature Review}
-%------------------------------------------------------------------
-
-The quantification of uncertainty arising from manufacturing variability in composite aerospace structures is a fundamental challenge in structural reliability engineering. Stochastic Finite Element Methods (SFEM) provide a rigorous framework to propagate input uncertainties through deterministic computational models.
-
-Ghanem and Spanos~\cite{ghanem1991} introduced the spectral approach to SFEM, representing stochastic processes via Polynomial Chaos Expansion (PCE). In their formulation, uncertain system responses are expanded in a series of Hermite polynomial basis functions of standard Gaussian random variables, enabling the transformation of stochastic boundary-value problems into systems of deterministic equations. This intrusive approach forms the theoretical foundation of PCE-based SFEM.
-
-Sudret and Der Kiureghian~\cite{sudret2000} provided a comprehensive state-of-the-art review of SFEM and reliability analysis, comparing intrusive spectral methods with non-intrusive sampling-based approaches. Non-intrusive PCE, in which the existing deterministic FEM code is treated as a black-box and PCE coefficients are estimated via regression or quadrature, substantially reduces implementation effort. Sudret~\cite{sudret2008} further demonstrated that once a PCE surrogate is constructed, global sensitivity indices in the sense of Sobol can be obtained analytically at negligible additional cost, making PCE particularly attractive for combined uncertainty quantification and sensitivity analysis.
-
-Smolyak sparse quadrature~\cite{smolyak1963} addresses the curse of dimensionality inherent in full tensor-product Gauss quadrature. For $d$ uncertain parameters and polynomial degree $p$, Smolyak grids achieve the same exactness as full grids while reducing the number of function evaluations from $\mathcal{O}(n_q^d)$ to $\mathcal{O}(n_q (\log n_q)^{d-1})$. Fajraoui et al.~\cite{fajraoui2017} extended sparse PCE to sequential experimental designs, further improving efficiency for high-dimensional problems.
-
-Global sensitivity analysis through Sobol indices~\cite{saltelli2008} decomposes the total output variance into contributions from individual inputs and their interactions. Bayesian methods provide the complementary inverse perspective: Tarantola~\cite{tarantola2005} established the general framework for Bayesian inverse problem theory, and Marzouk et al.~\cite{marzouk2009} demonstrated that PCE surrogates can serve as efficient likelihood evaluators within Bayesian inference, enabling posterior sampling at negligible cost once the surrogate is constructed. The spatial representation of material variability via Karhunen--Lo\`{e}ve expansion was formalised by Lo\`{e}ve~\cite{loeve1978} and applied to geotechnical random fields by Phoon et al.~\cite{phoon1999}; the same framework applies directly to manufacturing variability in CFRP. For data-driven surrogate comparison, Rasmussen and Williams~\cite{rasmussen2006} provide the definitive reference for Gaussian Processes, and Forrester et al.~\cite{forrester2008} survey surrogate methods in the engineering design context. First-order indices $S_i$ quantify the variance reduction achieved by fixing input $X_i$; total-order indices $S_T^i$ capture the full effect of $X_i$ including all interactions. In thin-walled composite structures, where deformation is predominantly governed by membrane stiffness, it is expected that fiber-direction modulus uncertainty dominates the structural response variance, as confirmed in this work.
+\end{frontmatter}
 
 %------------------------------------------------------------------
 \section{Introduction}
+\label{sec:intro}
 %------------------------------------------------------------------
 
-Composite fairing structures for launch vehicles, such as the JAXA H3 rocket, are manufactured from CFRP skins bonded to aluminum honeycomb cores. Material properties of CFRP and the adhesive cohesive zone are inherently variable due to manufacturing processes: fiber volume fraction fluctuations, cure cycle variations, and adhesive film thickness inconsistencies. These uncertainties propagate into structural responses---stress, damage, and deformation---affecting reliability.
+Composite fairing structures for launch vehicles are manufactured from CFRP skins bonded to
+aluminium honeycomb cores. The properties of both the laminate and the adhesive interface
+vary from panel to panel because of fibre volume fraction fluctuations, cure cycle
+variations and adhesive film thickness inconsistencies. These uncertainties propagate into
+stress, damage and deformation, and therefore into structural reliability. A deterministic
+analysis at nominal properties cannot say how much of the computed margin is genuine and
+how much is an artefact of the particular property values assumed.
 
-\begin{figure}[h]
+Stochastic Finite Element Methods provide the framework for propagating such input
+uncertainty through a deterministic model. Ghanem and Spanos~\cite{ghanem1991} introduced
+the spectral approach, expanding the response in Hermite polynomials of Gaussian variables
+and converting the stochastic boundary-value problem into a deterministic system. That
+formulation is intrusive: it requires rewriting the finite-element equations, which is not
+possible with a commercial solver. Sudret and Der Kiureghian~\cite{sudret2000} review the
+non-intrusive alternative, in which the deterministic code is treated as a black box and
+the expansion coefficients are recovered by regression or quadrature from a set of ordinary
+solver runs. Sudret~\cite{sudret2008} showed that once such a surrogate exists, Sobol
+sensitivity indices follow analytically from its coefficients at no additional cost --- the
+property that makes PCE attractive when sensitivity, and not only response statistics, is
+the object of the study. The polynomial family is dictated by the input measure through the
+Wiener--Askey scheme~\cite{xiu2002}; Gaussian inputs select the Hermite basis used here.
+
+The cost of a non-intrusive expansion is governed by the quadrature rule. Full
+tensor-product Gauss--Hermite quadrature requires $n_q^d$ points, which is prohibitive
+beyond a few dimensions. The Smolyak sparse grid~\cite{smolyak1963} combines low-order
+one-dimensional rules so that exactness is retained on the total-degree polynomial space at
+a fraction of the point count, and sparse expansions can be pushed further with adaptive
+designs~\cite{fajraoui2017}. Spatial variability, when it matters, is represented by the
+Karhunen--Lo\`{e}ve expansion~\cite{loeve1978,phoon1999}, and non-Gaussian marginals are
+recovered from a Gaussian basis by memoryless translation~\cite{grigoriu1998}. On the
+inverse side, Tarantola~\cite{tarantola2005} sets out the Bayesian framework and Marzouk et
+al.~\cite{marzouk2007} demonstrate that a PCE surrogate serves as an efficient likelihood
+evaluator. For the data-driven comparison, Rasmussen and Williams~\cite{rasmussen2006} and
+Forrester et al.~\cite{forrester2008} provide the reference treatments of Gaussian Processes
+and of surrogate modelling in engineering design.
+
+This work applies non-intrusive PCE to an existing high-fidelity Abaqus/Standard model of
+an H3 fairing sandwich panel. The objectives are to construct and validate PCE surrogates
+of degree 2 and 3 on Smolyak sparse grids; to identify the dominant uncertain parameter by
+Sobol analysis; to assess reliability under the design load; and to extend the analysis in
+three directions --- Bayesian identification of the dominant parameter from response
+measurements, a non-Gaussian spatially varying representation of that parameter, and a
+systematic comparison of stochastic against data-driven surrogates under a small data
+budget. \figref{fig:overview} summarises the workflow.
+
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.40\textwidth]{figures/fairing_geometry.png}
-    \caption{The application structure: the JAXA H3 payload fairing (ogive nose
-    $H_\text{nose}=5.4$~m, cylinder $H_\text{cyl}=5.0$~m, diameter 5.2~m), a CFRP/aluminum-honeycomb
-    sandwich under transverse pressure. This study propagates manufacturing variability through a
-    representative panel of this structure (Section~\ref{sec:fem}).}
-    \label{fig:context}
+    \includegraphics[width=\textwidth]{figures/hero_sfem_pipeline.png}
+    \caption{The non-intrusive SFEM workflow: five uncertain material parameters enter as
+    standardised Gaussian inputs, are propagated through the deterministic Abaqus model at
+    the sparse-grid nodes, and yield the response distribution and Sobol indices from the
+    fitted expansion.}
+    \label{fig:overview}
 \end{figure}
-
-This study applies \textbf{non-intrusive Polynomial Chaos Expansion (PCE)} as a Stochastic FEM surrogate to quantify how manufacturing variability in five key parameters propagates to structural responses in the H3 fairing. The existing high-fidelity Abaqus/Standard FEM model of the H3 fairing panel serves as the black-box FEM solver. Three additional stochastic analyses extend the baseline forward UQ: Bayesian inverse identification of dominant material parameters from structural response observations; spatially varying random field representation of the fibre-direction modulus via Karhunen--Lo\`{e}ve (KL) expansion; and a systematic comparison of stochastic versus data-driven surrogate methods. The specific objectives are:
-
-\begin{enumerate}
-    \item Construct PCE surrogates of degree 2 and 3 using Smolyak sparse quadrature and validate convergence.
-    \item Identify the dominant uncertain parameter via Sobol global sensitivity analysis.
-    \item Assess structural reliability ($P_f$, $\beta$) under manufacturing variability.
-    \item Compare PCE and NN surrogate accuracy and interpretability.
-    \item Perform Bayesian identification of $E_1$ from synthetic stress measurements using the PCE as a forward model (Section~\ref{sec:bayes_inline}; Appendix~\ref{app:bayes}).
-    \item Represent $E_1$ as a spatially varying Gaussian random field via KL expansion and quantify how spatial averaging attenuates the variability of the effective panel modulus (Appendix~\ref{app:kl}).
-    \item Systematically compare PCE, GP, and NN surrogates as a function of training data size, and decompose epistemic vs.\ aleatory uncertainty (Appendix~\ref{app:t13}).
-\end{enumerate}
 
 %------------------------------------------------------------------
 \section{Methodology}
+\label{sec:method}
 %------------------------------------------------------------------
 
-\subsection{Polynomial Chaos Expansion}
+\subsection{Polynomial chaos expansion}
 
-For a model response $Y = \mathcal{M}(\xi)$ depending on random input vector $\xi \in \mathbb{R}^d$, PCE approximates:
+For a response $Y=\mathcal{M}(\xi)$ depending on a random input vector
+$\xi\in\mathbb{R}^d$, the expansion reads
 \begin{equation}
-    Y \approx \hat{Y} = \sum_{\alpha \in \mathcal{A}} c_\alpha \Psi_\alpha(\xi)
+    Y \approx \hat{Y} = \sum_{\alpha\in\mathcal{A}} c_\alpha \Psi_\alpha(\xi),
+    \label{eq:pce}
 \end{equation}
-where $\Psi_\alpha$ are orthogonal polynomial basis functions (Hermite polynomials for Gaussian inputs), $c_\alpha$ are coefficients to be determined, and $\mathcal{A}$ is a truncated multi-index set with $|\alpha| \leq p$ (total degree $p$). For $d = 5$ variables and degree $p$, the number of basis terms is:
+where the $\Psi_\alpha$ are multivariate polynomials orthogonal with respect to the input
+measure and $\mathcal{A}=\{\alpha : |\alpha|\le p\}$ is the total-degree truncation. The
+number of terms is $P=\binom{d+p}{p}$, giving $P=21$ for $d=5,\,p=2$ and $P=56$ for $p=3$.
+
+The Hermite basis is not an arbitrary choice but is fixed by the Gaussian input measure,
+and it is the resulting orthogonality --- not the polynomial form itself --- that carries
+the practical value. Because $\mathbb{E}[\Psi_\alpha\Psi_\beta]=0$ for $\alpha\ne\beta$,
+the coefficients are the spectral projections of the response, so the mean is read directly
+from $c_0$ and the variance from $\sum_{\alpha\ne0}c_\alpha^2\,\mathbb{E}[\Psi_\alpha^2]$.
+The Sobol indices~\cite{saltelli2008} follow by the same mechanism as partial sums of
+squared coefficients grouped by the variables each multi-index activates:
 \begin{equation}
-    P = \binom{d+p}{p} = \binom{5+p}{p}
+    S_i = \frac{\sum_{\alpha\in\mathcal{A}_i} c_\alpha^2\,\mathbb{E}[\Psi_\alpha^2]}
+               {\sum_{\alpha\ne0} c_\alpha^2\,\mathbb{E}[\Psi_\alpha^2]},
+    \qquad
+    \mathcal{A}_i=\{\alpha:\alpha_i>0,\ \alpha_{j\ne i}=0\}.
+    \label{eq:sobol}
 \end{equation}
-giving $P = 21$ for $p=2$ and $P = 56$ for $p=3$.
+The complete second-moment and global-sensitivity information is thus recovered
+analytically, without a single additional model evaluation. This is the decisive advantage
+over a generic regression surrogate.
 
-The choice of a Hermite basis is dictated by the Gaussian input measure rather than being arbitrary: Hermite polynomials are orthogonal with respect to the standard-normal weight, and it is this orthogonality, not the polynomial form itself, that makes the expansion valuable. Because the basis is orthogonal, the coefficients $c_\alpha$ coincide with the spectral projections of the response, so the mean is read directly from $c_0$ and the variance from the sum of the remaining squared coefficients, $\sum_{\alpha \neq 0} c_\alpha^2\,\mathbb{E}[\Psi_\alpha^2]$. The Sobol indices follow by the same mechanism, as partial sums of these squared coefficients grouped according to the variables each multi-index $\alpha$ activates. This is the decisive practical advantage of PCE over a generic regression surrogate: the complete second-moment and global-sensitivity information is recovered analytically from the coefficients, without a single additional model evaluation.
+\subsection{Smolyak sparse quadrature}
 
-\subsection{Smolyak Sparse Quadrature}
+Full tensor-product quadrature requires $3^5=243$ points at degree 2 and $4^5=1024$ at
+degree 3. The Smolyak construction reduces these to 66 and 286 respectively, a factor of
+roughly 3.6 in both cases, while retaining exactness on the total-degree space. Negative
+quadrature weights, which can arise in sparse Gauss--Hermite rules, were handled by falling
+back to least-squares regression (\texttt{chaospy.fit\_regression}); with 66 points against
+21 unknowns the system is comfortably over-determined, which also permits leave-one-out
+cross-validation of the fit.
 
-Full tensor-product Gauss-Hermite quadrature requires $n_q^d$ points (e.g., $4^5 = 1024$ for $p=3$, $d=5$), which is computationally prohibitive. The Smolyak sparse grid~\cite{smolyak1963} reduces this dramatically while maintaining polynomial exactness of degree $\leq 2p-1$.
+\subsection{Uncertain inputs and quantities of interest}
 
-\begin{table}[h]
+Five manufacturing-related parameters are treated as independent truncated normals,
+$\xi_i\sim\mathrm{TruncNormal}(\mu_i,\sigma_i,0.5\mu_i,1.5\mu_i)$, listed in
+Table~\ref{tab:params}. Dependent properties are scaled proportionally:
+$E_2=10000\,(E_1/\mu_{E_1})$, $G_{23}=3000\,(G_{12}/\mu_{G_{12}})$, $K_s=K_n/2$ and
+$G_{IIc}=G_{Ic}/0.3$.
+
+\begin{table}[htb]
 \centering
-\caption{Comparison of quadrature grid sizes for $d=5$ uncertain parameters.}
-\begin{tabular}{lccc}
-\toprule
-Degree $p$ & Full grid & Sparse grid (this work) & Reduction factor \\
-\midrule
-2 & $3^5 = 243$  & 66  & $3.7\times$ \\
-3 & $4^5 = 1024$ & 286 & $3.6\times$ \\
-\bottomrule
-\end{tabular}
-\label{tab:grid}
-\end{table}
-
-Negative quadrature weights, which can arise in sparse Gauss-Hermite rules, were handled by falling back to least-squares regression (\texttt{chaospy.fit\_regression}).
-
-\subsection{Uncertain Input Parameters}
-
-Five manufacturing-related parameters are treated as independent truncated-normal random variables $\xi_i \sim \mathrm{TruncNormal}(\mu_i, \sigma_i, 0.5\mu_i, 1.5\mu_i)$:
-
-\begin{table}[h]
-\centering
-\caption{Uncertain input parameters with their nominal values and assumed variability.}
+\caption{Uncertain input parameters. Truncation at $[0.5\mu,1.5\mu]$ corresponds to
+$\pm10\sigma$ for $E_1$ and $\pm2.5\sigma$ for the widest-scattered parameter $G_{Ic}$, so
+the bounds are practically inactive in every case.}
 \begin{tabular}{llccc}
 \toprule
 Parameter & Description & Nominal $\mu$ & CoV & $\sigma$ \\
 \midrule
-$E_1$    & CFRP fiber-direction Young's modulus & 146{,}000~MPa & 5\%  & 7{,}300~MPa \\
+$E_1$    & CFRP fibre-direction Young's modulus & 146{,}000~MPa & 5\%  & 7{,}300~MPa \\
 $G_{12}$ & CFRP in-plane shear modulus          & 5{,}200~MPa   & 10\% & 520~MPa \\
-$K_n$    & Cohesive zone normal stiffness       & $1.0\times10^6$~N/mm$^3$ & 15\% & $1.5\times10^5$~N/mm$^3$ \\
+$K_n$    & Cohesive normal stiffness            & $1.0\times10^6$~N/mm$^3$ & 15\% & $1.5\times10^5$~N/mm$^3$ \\
 $G_{Ic}$ & Mode-I fracture energy               & 0.3~N/mm      & 20\% & 0.06~N/mm \\
-$t_n$    & Cohesive zone normal strength        & 50~MPa        & 15\% & 7.5~MPa \\
+$t_n$    & Cohesive normal strength             & 50~MPa        & 15\% & 7.5~MPa \\
 \bottomrule
 \end{tabular}
 \label{tab:params}
 \end{table}
 
-Dependent material properties are scaled proportionally: $E_2 = 10000 \cdot (E_1/\mu_{E_1})$, $G_{23} = 3000 \cdot (G_{12}/\mu_{G_{12}})$, $K_s = K_n/2$, $G_{IIc} = G_{Ic}/0.3$.
+A truncated normal was preferred over an unbounded Gaussian because stiffnesses and
+fracture energies are strictly positive, and because material accepted for flight hardware
+is screened against incoming-inspection limits, so extreme outliers do not represent the
+qualified population. The assumed coefficients of variation follow the usual ordering for
+CFRP: the fibre-dominated modulus is the most tightly controlled, while matrix- and
+interface-dominated quantities scatter more.
 
-A truncated normal was preferred over an unbounded Gaussian for two reasons. Physically, stiffnesses and fracture energies are strictly positive, and an unbounded normal would assign finite probability to non-physical negative draws; the $[0.5\mu,\,1.5\mu]$ truncation additionally reflects that material accepted for flight hardware is screened against incoming-inspection limits, so extreme outliers are not representative of the qualified population. The assumed coefficients of variation follow the usual ordering for CFRP: the fiber-dominated modulus $E_1$ is the most tightly controlled (5\%), while the matrix- and interface-dominated quantities are progressively more variable (10--20\%). The proportional scaling of the dependent moduli is a modelling convenience that imposes perfect correlation on those quantities; its consequences, together with the independence assumed among the five primary variables, are examined critically in Section~\ref{sec:limits}.
+Three responses are extracted from the last frame of each analysis through the
+\texttt{odbAccess} interface: the peak von Mises stress in the CFRP skin, with a failure
+threshold of 1{,}200~MPa; the peak scalar damage variable SDEG in the adhesive, with a
+threshold of 0.5; and the peak nodal displacement.
 
-\subsection{Quantities of Interest}
+\subsection{Non-intrusive pipeline}
 
-Three structural response quantities are extracted from each Abaqus simulation:
-
-\begin{table}[h]
-\centering
-\caption{Quantities of interest (QoI) and their failure thresholds.}
-\begin{tabular}{llll}
-\toprule
-QoI & Symbol & Description & Failure threshold \\
-\midrule
-Max von Mises stress  & $\sigma_\text{vM}^\text{max}$ & Peak stress in CFRP skin       & 1{,}200~MPa \\
-Max scalar damage var.& $d^\text{max}$                & Peak SDEG in adhesive layer    & 0.5 \\
-Max displacement      & $u^\text{max}$                & Peak nodal displacement        & --- \\
-\bottomrule
-\end{tabular}
-\label{tab:qoi}
-\end{table}
-
-\subsection{Non-Intrusive SFEM Pipeline}
-
-The non-intrusive pipeline treats Abaqus/Standard as a black-box:
-\begin{enumerate}
-    \item Generate Smolyak sparse quadrature nodes $\{\xi^{(k)}\}_{k=1}^N$ in standard normal space.
-    \item For each node: patch the Abaqus \texttt{.inp} material cards, run \texttt{abaqus job=PCE-S\textit{XXXX} interactive}, and extract QoIs via \texttt{odbAccess}.
-    \item Fit PCE coefficients $\{c_\alpha\}$ via \texttt{chaospy.fit\_regression} (or quadrature projection when weights are positive).
-    \item Post-process: Sobol indices (analytical from PCE coefficients), Monte Carlo on surrogate ($10^6$ samples) for $P_f$ and $\beta$, leave-one-out cross-validation for RMSE.
-\end{enumerate}
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{figures/hero_sfem_pipeline.png}
-    \caption{Overview of the non-intrusive SFEM workflow: (1) five uncertain material
-    parameters as Gaussian inputs, (2) propagation through the deterministic Abaqus model,
-    and (3) the recovered response distribution and Sobol indices ($E_1$ accounts for 99.2\%
-    of the variance). The stress field is illustrative; the actual model is the H3 fairing
-    sandwich panel of Section~\ref{sec:fem} (Fig.~values per Tables~\ref{tab:params}--\ref{tab:sobol}).}
-    \label{fig:overview}
-\end{figure}
-
-\subsection{Neural Network Surrogate}
-
-A fully connected MLP (5 $\to$ 64 $\to$ 64 $\to$ 32 $\to$ 1, ReLU activations) was trained on the same Abaqus data for 500~epochs (Adam optimizer, lr~$= 10^{-3}$). The NN serves as a black-box surrogate baseline for accuracy comparison against the interpretable PCE model.
+The pipeline treats Abaqus/Standard as a black box. Smolyak nodes are generated in
+standard-normal space; for each node the material cards of the input deck are patched and
+the job is run; the responses are extracted and the coefficients fitted; and the
+post-processing then yields Sobol indices analytically, failure probabilities by Monte
+Carlo on the surrogate ($10^6$ samples), and leave-one-out errors. No solver source code is
+touched at any stage, which is what makes the approach usable with a commercial code.
 
 %------------------------------------------------------------------
-\section{Finite Element Model}
+\section{Finite element model}
 \label{sec:fem}
 %------------------------------------------------------------------
 
-The Abaqus/Standard model represents a representative panel of the H3 fairing sandwich structure:
+The model, shown in \figref{fig:fem_model}, represents a panel of the fairing sandwich
+structure. The CFRP skins use an
+orthotropic LAMINA elastic definition parameterised by $E_1$, $E_2$, $\nu_{12}$, $G_{12}$,
+$G_{13}$ and $G_{23}$; the aluminium honeycomb core is a homogenised linear-elastic
+continuum rather than a resolved cellular geometry. The adhesive interface is represented by
+a cohesive zone model with a traction--separation law that is linear elastic up to the
+strength $t_n$ and then softens under the control of the fracture energy $G_{Ic}$, with
+mixed-mode evolution governed by the Benzeggagh--Kenane criterion~\cite{benzeggagh1996} at
+$\eta=2.284$. Loading is applied in two steps, a static pressure followed by an incremental
+load. Each output database is approximately 293~MB, which is what makes the sample count,
+rather than the individual solve, the binding constraint on the study.
+\figref{fig:fairing_fem} shows a deterministic solve of the full fairing for context.
 
-\begin{itemize}
-    \item \textbf{CFRP skin}: LAMINA elastic material (orthotropic), defined by $E_1$, $E_2$, $\nu_{12}$, $G_{12}$, $G_{13}$, $G_{23}$.
-    \item \textbf{Al-Honeycomb core}: linear elastic, fixed properties.
-    \item \textbf{Adhesive interface}: Cohesive Zone Model (CZM) with BK mixed-mode damage evolution ($\eta = 2.284$), stiffness $K_n$/$K_s$, strength $t_n$/$t_s$, fracture energies $G_{Ic}$/$G_{IIc}$.
-    \item \textbf{Loading}: Two-step analysis — Step-1 (static pressure), Step-2 (incremental load).
-    \item \textbf{QoI extraction}: Step-2 last frame via \texttt{odbAccess} Python API.
-\end{itemize}
-
-Total model size: $\approx 293$~MB per ODB file.
-
-\begin{figure}[h]
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.96\textwidth]{figures/fem_panel_model.png}
-    \caption{Schematic of the deterministic Abaqus/Standard model: a CFRP/Al-honeycomb sandwich panel
-    with cohesive-zone adhesive interfaces, clamped edges, and a two-step pressure/incremental load.
-    The five uncertain inputs locate to the skin ($E_1, G_{12}$) and the adhesive cohesive law
-    ($K_n, G_{Ic}, t_n$). Mesh shown is illustrative.}
+    \includegraphics[width=0.92\textwidth]{figures/fem_panel_model.png}
+    \caption{The deterministic model: a CFRP/aluminium-honeycomb sandwich panel with
+    cohesive-zone adhesive interfaces, clamped edges and a two-step pressure and
+    incremental load. The five uncertain inputs enter through the skin ($E_1$, $G_{12}$) and
+    the cohesive law ($K_n$, $G_{Ic}$, $t_n$).}
     \label{fig:fem_model}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.31\textwidth]{figures/fairing_mesh.png}\hfill
-    \includegraphics[width=0.31\textwidth]{figures/fairing_odb_mises.png}\hfill
-    \includegraphics[width=0.31\textwidth]{figures/fairing_disp.png}
-    \caption{Deterministic FE solve of the full H3 fairing (CFRP skins on an aluminum-honeycomb
-    core; Abaqus ODB): mesh with ring frames and the access-door cutout (left); von Mises stress,
-    concentrating around the cutout (centre); and displacement field, peaking at the nose (right).
-    Each PCE quadrature node is one such black-box solve; the present study surrogates a
-    representative sandwich panel of this structure.}
+    \includegraphics[width=0.48\textwidth]{figures/fairing_odb_mises.png}\hfill
+    \includegraphics[width=0.48\textwidth]{figures/fairing_disp.png}
+    \caption{Deterministic solve of the full fairing: von Mises stress concentrating around
+    the access-door cutout (left) and the displacement field peaking at the nose (right).
+    Each quadrature node of the stochastic study is one such black-box solve.}
     \label{fig:fairing_fem}
 \end{figure}
 
 %------------------------------------------------------------------
-\section{Results}
+\section{Forward uncertainty quantification}
+\label{sec:results}
 %------------------------------------------------------------------
 
-\subsection{PCE Response Statistics}
+\subsection{Response statistics and convergence}
 
-\begin{table}[h]
+Table~\ref{tab:pce} collects the response statistics at both expansion degrees. They agree
+to four significant figures, which establishes convergence at degree 2 and, more
+informatively, quantifies the curvature of the response surface: had the responses depended
+appreciably on higher-order terms, the additional 220 simulations of the degree-3 grid
+would have moved the standard deviation. That they do not confirms that a quadratic basis
+already saturates the achievable accuracy; \figref{fig:conv_smises} shows the corresponding
+convergence with quadrature-point count.
+
+\begin{table}[htb]
 \centering
-\caption{PCE response statistics (degree = 2, 66 Abaqus simulations).}
-\begin{tabular}{llllll}
+\caption{PCE response statistics at degree 2 (66 simulations) and degree 3 (286
+simulations).}
+\begin{tabular}{lccccc}
 \toprule
-QoI & Mean & Std.\ Dev. & CV (\%) & $P_f$ & $\beta$ \\
+& \multicolumn{2}{c}{Degree 2} & \multicolumn{2}{c}{Degree 3} & \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+QoI & Mean & Std.\ dev. & Mean & Std.\ dev. & CoV \\
 \midrule
-$\sigma_\text{vM}^\text{max}$ & 209.7~MPa & 2.375~MPa & 1.13 & 0 & $\infty$ \\
-$d^\text{max}$ (SDEG)         & 0.000     & 0.000     & ---  & 0 & $\infty$ \\
-$u^\text{max}$                 & 10.07~mm  & 0.178~mm  & 1.76 & --- & --- \\
+$\sigma_\text{vM}^\text{max}$ & 209.7~MPa & 2.375~MPa & 209.7~MPa & 2.378~MPa & 1.13\% \\
+$d^\text{max}$ (SDEG)         & 0.000     & 0.000     & 0.000     & 0.000     & --- \\
+$u^\text{max}$                & 10.07~mm  & 0.178~mm  & 10.07~mm  & 0.178~mm  & 1.76\% \\
 \bottomrule
 \end{tabular}
-\label{tab:pce2}
+\label{tab:pce}
 \end{table}
 
-\begin{table}[h]
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/pce_uq/convergence_max_smises.pdf}
+    \caption{Convergence of the mean and standard deviation of the peak von Mises stress
+    with the number of quadrature points. Both statistics are stable by 66 simulations.}
+    \label{fig:conv_smises}
+\end{figure}
+
+\subsection{Global sensitivity}
+
+The Sobol decomposition in Table~\ref{tab:sobol} reveals a strongly anisotropic sensitivity
+structure rather than a diffuse spread of influence. The fibre-direction modulus alone
+explains 99.21\% of the stress variance and 99.95\% of the displacement variance, and no
+other parameter reaches the percent level. The shear modulus is the only secondary
+contributor, and it accounts for under 1\% of the stress variance despite carrying twice
+the coefficient of variation of $E_1$. The three cohesive parameters register indices
+between $10^{-11}$ and $10^{-6}$, numerically indistinguishable from zero. The near-exact
+equality of first- and total-order indices completes the picture: the inputs act additively
+with no resolvable interactions, the signature of a response that is essentially linear
+over the sampled range. \figref{fig:sobol_pdf} shows the attribution alongside the
+recovered response distribution.
+
+\begin{table}[htb]
 \centering
-\caption{PCE response statistics (degree = 3, 286 Abaqus simulations).}
-\begin{tabular}{llllll}
-\toprule
-QoI & Mean & Std.\ Dev. & CV (\%) & $P_f$ & $\beta$ \\
-\midrule
-$\sigma_\text{vM}^\text{max}$ & 209.7~MPa & 2.378~MPa & 1.13 & 0 & $\infty$ \\
-$d^\text{max}$ (SDEG)         & 0.000     & 0.000     & ---  & 0 & $\infty$ \\
-$u^\text{max}$                 & 10.07~mm  & 0.178~mm  & 1.76 & --- & --- \\
-\bottomrule
-\end{tabular}
-\label{tab:pce3}
-\end{table}
-
-The statistics are virtually identical between degree~2 and degree~3, confirming \textbf{PCE convergence at degree~2}. The peak von Mises stress (209.7~MPa) is well below the CFRP tensile strength (1{,}200~MPa), yielding zero failure probability. The adhesive damage variable remains identically zero across all 352 simulations.
-
-\subsection{Global Sensitivity Analysis (Sobol Indices)}
-
-\begin{table}[h]
-\centering
-\caption{First-order ($S_i$) and total-order ($S_T^i$) Sobol indices — degree~2.}
+\caption{First-order and total-order Sobol indices at degree 2.}
 \begin{tabular}{lcccc}
 \toprule
 Parameter & $S_i$ (stress) & $S_T^i$ (stress) & $S_i$ (disp.) & $S_T^i$ (disp.) \\
@@ -293,456 +327,332 @@ $t_n$    & $\approx 0$     & $\approx 0$     & $\approx 0$     & $\approx 0$ \\
 \label{tab:sobol}
 \end{table}
 
-The Sobol decomposition reveals a strongly anisotropic sensitivity structure rather than a diffuse spread of influence across the five inputs. The fiber-direction modulus $E_1$ alone explains 99.21\% of the variance in peak von Mises stress and 99.95\% of the variance in maximum displacement, and no other parameter reaches even the percent level. This concentration is not incidental but a mechanical consequence of how the panel carries load, developed in Section~\ref{sec:whye1}. The in-plane shear modulus $G_{12}$ is the only secondary contributor, yet it accounts for under 1\% of the stress variance despite carrying twice the coefficient of variation of $E_1$ (10\% against 5\%); the membrane-dominated kinematics of the panel simply do not transmit shear-stiffness scatter into the quantities of interest. The three cohesive-zone parameters register Sobol indices between $10^{-11}$ and $10^{-6}$, numerically indistinguishable from zero --- the direct counterpart of the damage variable being identically zero at every quadrature node (Section~\ref{sec:whysdeg}), since a parameter that never moves the output cannot, by construction, contribute to its variance. The near-exact equality of the first- and total-order indices ($S_i \approx S_T^i$) completes the picture: the inputs act additively with no resolvable interactions, the signature expected of a response that is essentially linear over the sampled range.
-
-\begin{figure}[h]
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/pce_uq/sobol_max_smises.pdf}
-    \caption{Sobol sensitivity indices for max von Mises stress (degree~2). $E_1$ accounts for 99.2\% of output variance.}
-    \label{fig:sobol_smises}
+    \subfloat[Sobol indices for the peak von Mises stress.]{
+        \includegraphics[width=0.48\textwidth]{figures/pce_uq/sobol_max_smises.pdf}}
+    \hfill
+    \subfloat[Response distribution of the peak stress.]{
+        \includegraphics[width=0.48\textwidth]{figures/pce_uq/pdf_max_smises.pdf}}
+    \caption{Sensitivity attribution and the recovered response distribution at degree 2.}
+    \label{fig:sobol_pdf}
 \end{figure}
 
-\begin{figure}[h]
+\subsection{Reliability}
+
+For a limit state $F=\{G(\xi)>b\}$ the failure probability is
+$P_f=\int_F f_\xi(x)\,\mathrm{d}x$, estimated by Monte Carlo on the surrogate, and the
+reliability index is $\beta=-\Phi^{-1}(P_f)$. With a mean stress of 209.7~MPa, a standard
+deviation of 2.38~MPa and a threshold of 1{,}200~MPa, sampling $10^6$ surrogate
+realisations returns no failures, so $P_f=0$ and $\beta=\infty$ at both expansion degrees.
+
+This must be read as ``below the resolution of the analysis'' rather than as a literal
+guarantee. Monte Carlo on $10^6$ samples resolves probabilities only to
+$\mathcal{O}(10^{-6})$, and the surrogate is valid only within the truncated input domain,
+outside which the polynomial must not be extrapolated. The defensible statement is that the
+mean lies $(1200-209.7)/2.38\approx416$ standard deviations below the threshold, so failure
+is far outside the modelled range. \figref{fig:reliability} places the response
+distribution against the limit state.
+
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/pce_uq/sobol_max_disp.pdf}
-    \caption{Sobol sensitivity indices for max displacement (degree~2). $E_1$ dominates with $S_{E_1} = 0.9995$.}
-    \label{fig:sobol_disp}
-\end{figure}
-
-\subsection{Surrogate Accuracy: PCE vs Neural Network}
-
-\begin{table}[h]
-\centering
-\caption{Leave-one-out (LOO) RMSE comparison between PCE and NN surrogates.}
-\begin{tabular}{lcccc}
-\toprule
-QoI & PCE deg=2 & PCE deg=3 & NN deg=2 data & NN deg=3 data \\
-\midrule
-$\sigma_\text{vM}^\text{max}$ (MPa) & $\mathbf{9.4\times10^{-4}}$ & $1.5\times10^{-3}$ & $7.2\times10^{-4}$ & $1.77\times10^{-2}$ \\
-$d^\text{max}$                       & 0                          & 0                   & $\approx 0$        & $\approx 0$ \\
-$u^\text{max}$ (mm)                  & $\mathbf{4.2\times10^{-5}}$ & $7.1\times10^{-5}$ & $2.7\times10^{-5}$ & $1.6\times10^{-3}$ \\
-\bottomrule
-\end{tabular}
-\label{tab:rmse}
-\end{table}
-
-Three features of the comparison in Table~\ref{tab:rmse} are worth drawing out. The PCE expansion at degree~2 attains the lowest leave-one-out error of any configuration, and, tellingly, its degree-3 counterpart performs slightly \emph{worse}: fitting 56 coefficients to 286 points introduces estimation variance in the redundant high-order terms without any compensating reduction in bias, which is the classic symptom of mild over-parameterisation on an almost-linear response. The neural network exhibits the same pathology far more sharply --- its error degrades by an order of magnitude between the 66- and 286-point sets --- because a fixed architecture carrying several thousand weights cannot avoid overfitting when the underlying map is this smooth. In absolute terms, a PCE leave-one-out RMSE below $10^{-3}$~MPa against a nominal stress of $\approx 210$~MPa is a relative error of roughly $5\times10^{-4}\%$, so the surrogate error is entirely negligible beside the manufacturing-induced response scatter it is meant to characterise. The interpretability gap reinforces the same conclusion: the PCE returns the Sobol indices analytically from its coefficients, whereas the network would require a separate Monte Carlo sensitivity study to recover the same information.
-
-%------------------------------------------------------------------
-\section{Reliability Analysis}
-%------------------------------------------------------------------
-
-\subsection{Failure Probability Formulation}
-
-The failure probability for an event $F = \{G(\xi) > b\}$ is:
-\begin{equation}
-    P_f = P(G(\xi) > b) = \int_F f_\xi(x)\,\mathrm{d}x
-\end{equation}
-where $f_\xi$ is the joint PDF of inputs and $b$ is the failure threshold. With $P_f$ estimated via Monte Carlo on the PCE surrogate:
-\begin{equation}
-    \hat{P}_f = \frac{1}{N}\sum_{i=1}^{N} \mathbf{1}_{F}(\xi^{(i)}), \quad \xi^{(i)} \sim f_\xi
-\end{equation}
-
-The reliability index $\beta$ is defined as $\beta = -\Phi^{-1}(P_f)$, where $\Phi$ is the standard normal CDF.
-
-\subsection{Results}
-
-With $\sigma_\text{vM}^\text{max}$ mean of 209.7~MPa and standard deviation of 2.38~MPa, the stress distribution is far from the 1{,}200~MPa threshold. Monte Carlo sampling of $10^6$ realisations on the PCE surrogate yields:
-\begin{equation}
-    P_f = P(\sigma_\text{vM}^\text{max} > 1200\ \text{MPa}) = 0 \qquad \Rightarrow \qquad \beta = \infty
-\end{equation}
-
-This result holds for both degree-2 and degree-3 PCE. Even a $6\sigma$ stress event ($209.7 + 6\times2.38 = 224$~MPa) remains well below failure.
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.92\textwidth]{figures/reliability_margin.png}
-    \caption{Limit-state view. The entire response distribution
-    ($\sigma_\text{vM}^\text{max}\sim\mathcal{N}(209.7, 2.375^2)$~MPa) lies far below the
-    1{,}200~MPa failure limit, giving a safety margin of $\approx$990~MPa and an effectively
-    infinite reliability index ($P_f\approx 0$). Cohesive damage never initiates (SDEG $=0$).}
+    \includegraphics[width=0.85\textwidth]{figures/reliability_margin.png}
+    \caption{Limit-state view. The entire response distribution lies far below the
+    1{,}200~MPa threshold, giving a margin of approximately 990~MPa. Cohesive damage never
+    initiates.}
     \label{fig:reliability}
 \end{figure}
 
-The SDEG $= 0$ result confirms that the adhesive interface operates entirely within its elastic regime regardless of manufacturing variability, at the static design load level considered.
+%------------------------------------------------------------------
+\section{Extensions}
+\label{sec:extensions}
+%------------------------------------------------------------------
 
-\textit{Remark (spatial random field):} A spatially varying representation of $E_1$ via Karhunen--Lo\`{e}ve (KL) expansion (Appendix~\ref{app:kl}) shows that the spatially averaged modulus $\overline{E_1}$ has a standard deviation of $\approx 4{,}700$~MPa at the medium correlation length --- appreciably lower than the scalar point value of 7{,}300~MPa. This is an \emph{input-side} result: averaging a correlated field over the panel attenuates the variability of the effective modulus, and it does so without any additional FE evaluation. Its consequence for the response must be stated carefully. For response quantities governed by the panel-average stiffness --- global deflection and the membrane response --- the homogeneous scalar model over-states the input variability and therefore over-states the response variance, so the scalar treatment is \emph{conservative} for those quantities. The same conclusion does \emph{not} follow automatically for the peak von Mises stress, which is a local extreme rather than an average: a heterogeneous field introduces stiffness gradients and local stress redistribution that can raise the peak even as the panel-average modulus varies less. Establishing whether the scalar model is conservative for the peak stress requires propagating mapped KL realisations through the FE model, which is beyond the present scope and is identified as future work in Section~\ref{sec:limits}. Figure~\ref{fig:kl_effvar_inline} illustrates the input-side result.
+\subsection{Bayesian identification of $E_1$}
+\label{sec:bayes}
 
-\begin{figure}[ht]
+That $E_1$ explains more than 99\% of the output variance has a direct inverse implication:
+among the five parameters it is also the most identifiable from response measurements. Let
+$\theta=E_1$, with the prior of Table~\ref{tab:params} and a linear-Gaussian likelihood
+obtained from the surrogate,
+\begin{equation}
+    y_j = c_0 + c_1\,\xi_{E_1} + \varepsilon_j, \qquad
+    \varepsilon_j\sim\mathcal{N}(0,\sigma_\text{meas}^2),
+    \label{eq:likelihood}
+\end{equation}
+with $c_0=209.7$~MPa, $c_1=2.365$~MPa and $\sigma_\text{meas}=2.0$~MPa. Because the prior
+is Gaussian to within a truncation at $\pm10\sigma$ and the likelihood is linear-Gaussian in
+$\xi_{E_1}$, the posterior is Gaussian in closed form,
+\begin{equation}
+    \sigma_\text{post}^2 = \frac{1}{1+c_1^2/\sigma_\text{eff}^2}, \qquad
+    \mu_\text{post} = \sigma_\text{post}^2\,\frac{c_1(\bar{y}-c_0)}{\sigma_\text{eff}^2},
+    \qquad \sigma_\text{eff}^2=\frac{\sigma_\text{meas}^2}{k},
+    \label{eq:posterior}
+\end{equation}
+where $\bar{y}$ is the mean of $k$ independent measurements. No sampling is required. In a
+synthetic experiment with a true $E_1$ of 153{,}000~MPa, five measurements reduce the
+posterior standard deviation from the 7{,}300~MPa prior to 2{,}582~MPa, ten measurements to
+1{,}885~MPa --- a 74\% reduction --- and twenty to 1{,}356~MPa, all at negligible cost once
+the surrogate exists (\figref{fig:bayes}).
+
+The two-dimensional likelihood makes the limit of this explicit. Its ridge is almost
+parallel to the $\xi_{G_{12}}$ axis, with slope $-c_1/c_2\approx-11$: moving $G_{12}$
+across its entire prior range shifts the predicted stress by only 0.21~MPa, well inside the
+2.0~MPa measurement noise, so stress observations are essentially uninformative about it.
+Identifying $G_{12}$ would require roughly 270 measurements, an order-of-magnitude
+improvement in instrumentation, or --- the appropriate remedy --- a shear-driven load case
+in which the parameter actually moves the observable. Identifiability is a property of the
+experiment, not only of the instrument.
+
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.78\textwidth]{figures/topic9_kl/kl_effective_variance.pdf}
-    \caption{Standard deviation of the spatially averaged $\overline{E_1}$ vs.\ number of retained KL modes.
-    For all correlation lengths the effective modulus variability falls below the scalar baseline (dashed),
-    and the shorter the correlation length the stronger the attenuation. This bounds the input
-    variability seen by average-governed responses; it does not by itself bound the peak stress.}
-    \label{fig:kl_effvar_inline}
+    \includegraphics[width=0.80\textwidth]{figures/topic6_bayesian/bayes_convergence_k.pdf}
+    \caption{Posterior mean and 95\% credible interval of $E_1$ against the number of stress
+    measurements. Each point uses the mean of $k$ independent observations, so the estimator
+    is consistent and the interval contracts as $\sigma_\text{meas}/\sqrt{k}$.}
+    \label{fig:bayes}
 \end{figure}
 
+It is worth being precise about what this reduces. The quantity being narrowed is
+epistemic: the true modulus of a given batch is fixed but unknown, and measurement reduces
+that ignorance. The aleatory scatter between batches is untouched. Since $P_f$ is already
+zero at a 416-standard-deviation margin, the update does not improve the reliability
+assessment in any practical sense; its value lies on the manufacturing side, in showing
+that the parameter which dominates the variance is also the one that cheap response
+measurements can pin down, which is precisely what tolerance allocation needs.
 
-\begin{figure}[h]
+\subsection{Non-Gaussian random field representation of $E_1$}
+\label{sec:kl}
+
+The forward study treats $E_1$ as a single random variable, which is the $l_c\to\infty$
+limit of a random field --- appropriate when the dominant variability is between
+co-cured panels rather than within one. This section relaxes that assumption.
+
+A zero-mean unit-variance Gaussian field $Z(x)$ with covariance $C(x_1,x_2)$ admits the
+Karhunen--Lo\`{e}ve representation
+\begin{equation}
+    Z(x) = \sum_{i=1}^{M}\sqrt{\lambda_i}\,\phi_i(x)\,\zeta_i,
+    \qquad \zeta_i\sim\mathcal{N}(0,1)\ \text{independent},
+    \label{eq:kl}
+\end{equation}
+where $(\lambda_i,\phi_i)$ solve the Fredholm integral equation
+$\int_D C(x_1,x_2)\phi_i(x_2)\,\mathrm{d}x_2=\lambda_i\phi_i(x_1)$. An anisotropic
+exponential kernel is adopted,
+\begin{equation}
+    C(x_1,y_1;x_2,y_2)=\exp\!\left(-\frac{|x_1-x_2|}{l_{cx}}-\frac{|y_1-y_2|}{l_{cy}}\right),
+    \label{eq:kernel}
+\end{equation}
+on a $600\times400$~mm panel, for short ($l_{cx}=200$, $l_{cy}=150$~mm), medium (400, 300)
+and long (1200, 800) correlation lengths. The eigenpairs are obtained by direct
+eigendecomposition of the covariance matrix sampled on a uniform $20\times15$ grid, a
+point-collocation discretisation of \eqref{eq:kl} rather than a Galerkin projection; on a
+uniform grid the two differ only by the constant cell measure, which cancels in the
+explained-variance ratios. Reaching 99\% of the variance requires 164 modes at the short
+correlation length, 95 at the medium and 38 at the long: the shorter the correlation, the
+slower the eigenvalue decay and the higher the effective stochastic dimension.
+
+A Gaussian field assigns non-zero probability to negative stiffness, which is not
+physically admissible. The standard remedy is a translation field~\cite{grigoriu1998},
+obtained by passing the Gaussian field through a memoryless monotone map,
+\begin{equation}
+    H(x) = F^{-1}\!\left(\Phi\!\left(Z(x)\right)\right),
+    \label{eq:translation}
+\end{equation}
+which for a lognormal target reduces to $H(x)=\exp(\mu_{\ln}+\sigma_{\ln}Z(x))$ with
+$\sigma_{\ln}^2=\ln(1+\mathrm{CoV}^2)$. Positivity then holds by construction. The
+transform is monotone, so it preserves rank correlation, but it does \emph{not} preserve
+linear correlation: the induced correlation is
+\begin{equation}
+    \rho_H = \frac{\exp(\sigma_{\ln}^2\rho_Z)-1}{\exp(\sigma_{\ln}^2)-1},
+    \label{eq:rho}
+\end{equation}
+so if a target $\rho_H$ is prescribed the Gaussian kernel must be pre-distorted to match it.
+
+The magnitude of that distortion is governed by the coefficient of variation, and for the
+present material it is small. At $\mathrm{CoV}=5\%$ the underlying $\sigma_{\ln}=0.0500$,
+the marginal skewness is 0.150 and the correlation distortion never exceeds
+$3.1\times10^{-4}$; the lognormal and Gaussian descriptions are then numerically almost
+interchangeable, and the practical gain is the guarantee of positivity rather than any
+change in the statistics. The distortion grows to $1.1\times10^{-2}$ at
+$\mathrm{CoV}=30\%$ and $3.8\times10^{-2}$ at 60\%, so the non-Gaussian treatment becomes
+material for the interface parameters, whose scatter is larger, rather than for $E_1$.
+Both effects are shown in \figref{fig:nongauss}.
+
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/pce_uq/pdf_max_smises.pdf}
-    \caption{PDF of max von Mises stress: PCE surrogate (blue), NN surrogate (orange), and Abaqus sample points (histogram). Both surrogates agree well. Degree~2.}
-    \label{fig:pdf_smises}
+    \includegraphics[width=\textwidth]{figures/topic9_kl/kl_nongaussian.pdf}
+    \caption{Left: the marginal at a representative point under the Gaussian model and under
+    the lognormal translation field, which is strictly positive by construction. Right: the
+    departure of the induced correlation from the Gaussian one, \eqref{eq:rho}, against the
+    coefficient of variation.}
+    \label{fig:nongauss}
 \end{figure}
 
-\begin{figure}[h]
+Finally, spatial averaging attenuates the variability of the effective panel modulus. The
+standard deviation of the spatial mean $\overline{E_1}$ falls from the 7{,}300~MPa point
+value to approximately 4{,}700~MPa at the medium correlation length, and further at shorter
+correlations (\figref{fig:kl_effvar}). This is an \emph{input-side} result obtained without any additional FE
+evaluation, and its consequence for the response must be stated carefully. For quantities
+governed by the panel-average stiffness --- global deflection and the membrane response ---
+the homogeneous scalar model over-states the input variability and therefore the response
+variance, so the scalar treatment is conservative. The same does \emph{not} follow for the
+peak von Mises stress, which is a local extreme: a heterogeneous field introduces stiffness
+gradients and stress redistribution that can raise the peak even as the average modulus
+varies less. Settling that question requires propagating mapped realisations through the FE
+model, which is beyond the present scope.
+
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/pce_uq/pdf_max_sdeg.pdf}
-    \caption{PDF of max scalar damage variable (SDEG): all 66 Abaqus samples return SDEG $= 0$, confirming no cohesive damage initiation.}
-    \label{fig:pdf_sdeg}
+    \includegraphics[width=0.80\textwidth]{figures/topic9_kl/kl_effective_variance.pdf}
+    \caption{Standard deviation of the spatially averaged $\overline{E_1}$ against the
+    number of retained KL modes. For every correlation length the effective variability
+    falls below the scalar baseline, and the shorter the correlation the stronger the
+    attenuation.}
+    \label{fig:kl_effvar}
 \end{figure}
 
-\begin{figure}[h]
+\subsection{Stochastic against data-driven surrogates}
+\label{sec:t13}
+
+The final extension asks how the choice of surrogate interacts with the size of the
+training set, which is the operative constraint when each sample is a 293~MB Abaqus solve.
+PCE of degree 1 and 2, a Gaussian Process with an RBF kernel and a neural network
+($5\to64\to64\to32\to1$) were trained on $N\in\{10,\ldots,286\}$ points and evaluated on a
+fixed test set of 20{,}000 points, with results reported as medians over five random seeds.
+At $N=66$ the test RMSE is $8.9\times10^{-3}$~MPa for PCE degree 1,
+$3.0\times10^{-13}$~MPa for degree 2, $7.3\times10^{-4}$~MPa for the Gaussian Process and
+$3.6\times10^{-1}$~MPa for the network; \figref{fig:t13} shows the full convergence
+behaviour.
+
+\begin{figure}[htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/pce_uq/pdf_max_disp.pdf}
-    \caption{PDF of max displacement: PCE vs NN surrogate comparison. Degree~2.}
-    \label{fig:pdf_disp}
+    \includegraphics[width=0.85\textwidth]{figures/topic13_comparison/t13_rmse_convergence.pdf}
+    \caption{Test RMSE against training-set size for the four surrogates, median and
+    interquartile range over five seeds. The network exhibits the classic overfitting
+    signature, its error growing as the training set is enlarged.}
+    \label{fig:t13}
 \end{figure}
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{figures/pce_uq/convergence_max_smises.pdf}
-    \caption{PCE convergence study for max von Mises stress (degree~2). Mean and standard deviation stabilise by 66 quadrature points.}
-    \label{fig:conv_smises}
-\end{figure}
+What this experiment can and cannot support deserves to be stated plainly. The reference
+response is itself a degree-2 Hermite polynomial, so a degree-2 expansion lies in a model
+class that contains it exactly; the $\mathcal{O}(10^{-13})$ figure measures exact
+representability and the conditioning of the regression, not generalisation error, and it
+must not be read as PCE being twelve orders of magnitude more accurate than a network in
+any general sense. The factor of roughly 500 that is meaningful is the one between the two
+data-driven surrogates. What the comparison does measure is the value of a correct
+structural prior under a severe data budget: given that the response really is smooth and
+near-linear, the polynomial basis extracts it from tens of samples, whereas the Gaussian
+Process must infer smoothness from data and the network the functional form as well. Had
+the reference contained a feature outside the polynomial class --- a damage bifurcation, a
+threshold, a discontinuous derivative --- the ranking could reverse.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{figures/pce_uq/convergence_max_disp.pdf}
-    \caption{PCE convergence study for max displacement (degree~2). Both statistics are fully converged at 66 simulations.}
-    \label{fig:conv_disp}
-\end{figure}
+The Gaussian Process additionally supplies an epistemic error estimate that the PCE does
+not. At $N=66$ its posterior standard deviation is 0.008~MPa against an aleatory response
+standard deviation of 2.37~MPa, that is 0.3\%: surrogate error is negligible beside the
+physical scatter it is meant to characterise. This is an estimate of epistemic uncertainty
+\emph{within} the Gaussian Process model class and does not capture model-form error. For
+the PCE itself the corresponding evidence is the leave-one-out error, below
+$10^{-3}$~MPa against a nominal 210~MPa, together with the agreement between degree 2 and
+degree 3 reported in Table~\ref{tab:pce}.
 
 %------------------------------------------------------------------
 \section{Discussion}
+\label{sec:discussion}
 %------------------------------------------------------------------
 
-\subsection{Why Does $E_1$ Dominate?}
-\label{sec:whye1}
+\subsection{Why $E_1$ dominates}
 
-The dominance of $E_1$ is best understood through a first-order propagation argument rather than treated as a numerical curiosity. For a response $Y$ that is smooth in the inputs, the output variance is approximated to first order by
-\begin{equation}
-    \mathrm{Var}(Y) \approx \sum_{i=1}^{d} \left( \frac{\partial Y}{\partial \xi_i} \right)^2 \sigma_{\xi_i}^2 ,
-\end{equation}
-so each parameter's contribution scales with the product of its local sensitivity \emph{and} its variance --- not with either quantity alone. The fairing panel carries the design pressure predominantly through in-plane membrane action, for which both the peak skin stress and the global deflection are set by the axial laminate stiffness $E_1 t$. The response is therefore close to linear in $E_1$, giving a large $\partial Y/\partial E_1$, while $E_1$ simultaneously carries a non-negligible 5\% manufacturing scatter; the product of the two places almost the entire output variance on this single parameter. The shear modulus $G_{12}$ is the instructive counter-example: although its 10\% CoV is twice that of $E_1$, the membrane-dominated kinematics make $\partial Y/\partial G_{12}$ small, so the larger input scatter is suppressed in the output and only $\sim 0.8\%$ of the stress variance survives. The sensitivity ranking is thus governed not by which parameter is most uncertain, but by which uncertainty the structure is mechanically configured to amplify --- a distinction that the raw Sobol numbers alone do not make explicit.
+For a response smooth in the inputs the output variance is approximated to first order by
+$\mathrm{Var}(Y)\approx\sum_i(\partial Y/\partial\xi_i)^2\sigma_{\xi_i}^2$, so each
+parameter contributes through the product of its sensitivity and its variance, not through
+either alone. The panel carries the design pressure predominantly by in-plane membrane
+action, for which both the peak skin stress and the global deflection are set by the axial
+laminate stiffness $E_1t$. The response is therefore close to linear in $E_1$, giving a
+large derivative, while $E_1$ simultaneously carries a non-negligible 5\% scatter. The
+shear modulus is the instructive counter-example: its 10\% scatter is twice as large, but
+the membrane-dominated kinematics make its derivative small, so the larger input variability
+is suppressed in the output. The ranking is governed not by which parameter is most
+uncertain but by which uncertainty the structure is configured to amplify.
 
-\subsection{Why Is SDEG Identically Zero?}
-\label{sec:whysdeg}
+\subsection{Why SDEG is identically zero}
 
-That the cohesive interface remains undamaged across all 352 sampled configurations is a physical result with a clear load-margin explanation, but it also carries a methodological consequence that deserves to be stated plainly. The Step-2 load represents the static design-point pressure, comfortably within the elastic envelope of the adhesive: at nominal properties the interface traction stays below the cohesive strength $t_n$, and even at the $\pm 50\%$ truncation bounds on $K_n$, $t_n$ and $G_{Ic}$ the traction never reaches the damage-initiation criterion. Damage is therefore not merely improbable but absent from the entire sampled domain. The consequence is that the three cohesive parameters are \emph{structurally unidentifiable} in this study: because they never alter any QoI, no amount of additional sampling could assign them a non-zero Sobol index, and the nominally five-dimensional uncertainty problem collapses --- at this load level --- to an effectively one-dimensional problem in $E_1$. A study aimed at characterising the CZM parameters would have to raise the load into the damage-onset regime or introduce an explicit defect or impact scenario; under the present load, the most honest statement is that the data are simply uninformative about them.
+That the interface remains undamaged across all 352 sampled configurations is a physical
+result with a methodological consequence. The design-point pressure lies comfortably within
+the elastic envelope of the adhesive; at nominal properties the interface traction stays
+below $t_n$, and even at the truncation bounds on $K_n$, $t_n$ and $G_{Ic}$ it never
+reaches the damage-initiation criterion. Damage is therefore not merely improbable but
+absent from the entire sampled domain. The three cohesive parameters are consequently
+\emph{structurally unidentifiable}: because they never alter any response, no amount of
+additional sampling could assign them a non-zero Sobol index, and the nominally
+five-dimensional problem collapses, at this load, to an effectively one-dimensional problem
+in $E_1$. This is a finding rather than a defect --- it tells the designer that the bond is
+not load-limiting here --- but it also means that a study aimed at the cohesive law would
+have to drive the interface into damage.
 
-\subsection{PCE vs Neural Network: Summary Comparison}
-
-\begin{table}[h]
-\centering
-\caption{Qualitative comparison of PCE and NN surrogates for this problem.}
-\begin{tabular}{lll}
-\toprule
-Criterion & PCE (this work) & NN surrogate \\
-\midrule
-Training data required & 66 points (deg=2)    & 66--286 points \\
-Accuracy (LOO RMSE)    & $\sim 10^{-4}$        & $10^{-4}$ to $10^{-2}$ \\
-Convergence with data  & Stable (deg=2 optimal) & Degrades (overfitting) \\
-Sobol indices          & Analytical, exact      & Requires separate MC \\
-Interpretability       & High                   & Low (black-box) \\
-Applicable to          & Forward UQ, reliability & SHM, defect detection \\
-\bottomrule
-\end{tabular}
-\label{tab:compare}
-\end{table}
-
-The contrast in Table~\ref{tab:compare} should not be read as a generic claim that polynomial chaos is ``better'' than a neural network, but as a statement about the match between method and problem. PCE encodes a strong prior --- that the response is a low-order polynomial in the inputs --- and when that prior is correct, as it is for this smooth, membrane-dominated response, it extracts accurate statistics from very few samples and returns the sensitivity information for free. The MLP encodes almost no prior and must learn the response shape from data; with only 66--286 samples and several thousand weights it sits in a heavily over-parameterised regime, which is precisely why its out-of-sample error \emph{grows} when the training set is enlarged from 66 to 286 points. The two surrogates therefore occupy different niches rather than competing on a single scale: PCE for forward uncertainty quantification and reliability on smooth, low-dimensional responses, and data-driven networks for the high-dimensional, strongly nonlinear, or field-valued problems --- defect detection and structural health monitoring among them --- where a polynomial prior would be too restrictive to be useful.
-
-A systematic convergence study over training set sizes $N = 10, \ldots, 286$ (Appendix~\ref{app:t13}) confirms this ranking quantitatively. Figure~\ref{fig:t13_inline} shows the test RMSE for PCE degree~1, PCE degree~2, Gaussian Process (RBF kernel), and Neural Network as a function of $N$. At $N = 66$, PCE degree~2 achieves $\mathrm{RMSE} \approx 3 \times 10^{-13}$~MPa --- machine precision, consistent with exact polynomial recovery --- while the GP reaches $7 \times 10^{-4}$~MPa and the NN $0.36$~MPa (500~$\times$ the GP error). The GP additionally provides an epistemic uncertainty band (posterior standard deviation) that at $N=66$ contributes less than 5\% of the total predictive variance, confirming that surrogate error is negligible relative to the aleatory manufacturing scatter.
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=0.90\textwidth]{figures/topic13_comparison/t13_rmse_convergence.pdf}
-    \caption{Test RMSE vs training size $N$ for PCE (deg.~1 and 2), Gaussian Process, and Neural Network
-    (median $\pm$ IQR over 5 random seeds). PCE deg.~2 achieves exact recovery at $N=66$; the NN
-    exhibits the classic overfitting signature.}
-    \label{fig:t13_inline}
-\end{figure}
-
-
-\subsection{Bayesian Identification as a QC Feedback Loop}
-\label{sec:bayes_inline}
-
-The Sobol result --- $E_1$ explains $>99\%$ of the output variance --- has a direct inverse implication: the dominant source of variability is also the most identifiable. Using the PCE surrogate as a likelihood evaluator within a conjugate Gaussian update~\cite{tarantola2005,marzouk2009} (full derivation in Appendix~\ref{app:bayes}), the posterior distribution of $E_1$ given $k$ stress observations converges rapidly to the true value. Figure~\ref{fig:bayes_inline} shows the posterior mean and 95\% credible interval as a function of $k$: five measurements reduce the posterior standard deviation from 7{,}300~MPa (prior) to 2{,}582~MPa, ten measurements to 1{,}885~MPa (a 74\% reduction), and twenty to 1{,}356~MPa (81\%) --- all at essentially zero additional computational cost once the PCE is constructed. This positions the PCE surrogate not merely as a forward uncertainty propagation tool but as the computational engine of a real-time statistical process control loop: as panel batches are tested and stress measurements accumulate, the $E_1$ distribution is progressively refined, enabling tighter manufacturing tolerance allocation.
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=0.80\textwidth]{figures/topic6_bayesian/bayes_convergence_k.pdf}
-    \caption{Posterior mean and 95\% credible interval of $E_1$ as a function of the number of stress measurements $k$. The estimate converges to the true value (dotted) within 5--10 measurements; the 95\% interval narrows to half the prior width by $k=20$.}
-    \label{fig:bayes_inline}
-\end{figure}
-
-\subsection{Degree Convergence}
-
-That the degree-2 (66-sample) and degree-3 (286-sample) statistics agree to four significant figures is more than a convergence check; it quantifies the curvature of the response surface. Had the QoIs depended appreciably on second- or higher-order terms, the additional 220 simulations of the degree-3 grid would have shifted the mean or, more sensitively, the standard deviation. Their failure to do so confirms that a quadratic basis already saturates the achievable accuracy. This reading is reinforced by the leave-one-out results of Table~\ref{tab:rmse}, where the degree-3 surrogate is marginally \emph{less} accurate than degree~2 --- a signature of variance from fitting redundant high-order coefficients rather than of bias from an inadequate basis. For this class of smooth, small-deformation structural response, degree~2 is therefore not a compromise but the appropriate model order.
-
-\subsection{Limitations and Critical Reflection}
+\subsection{Limitations}
 \label{sec:limits}
 
-Several limitations qualify the conclusions above and define the regime in which they hold.
+Several limitations delimit the regime in which the conclusions hold. The reported zero
+failure probability is bounded below by the resolution of the sampling and by the truncated
+input domain, as discussed in Section~\ref{sec:results}. The five inputs are treated as
+independent, whereas the elastic constants of a ply share common physical drivers and are
+in reality positively correlated; the proportional scaling of the dependent moduli
+simultaneously imposes perfect correlation on those quantities, an internally inconsistent
+simplification. Because $E_1$ dominates so completely the headline conclusions are robust to
+this, but a correlated input model, through a Nataf or Rosenblatt transform, would be
+required before the small $G_{12}$ contribution could be read quantitatively. The study
+models a single representative panel rather than the complete fairing, so the absolute
+stress level should be regarded as representative of the coupon rather than as a certified
+margin. Only aleatory uncertainty in the material parameters is propagated; the epistemic
+error of the finite-element model itself --- mesh discretisation, the mixed-mode law, the
+homogenised honeycomb --- is not quantified. Finally, the KL study of
+Section~\ref{sec:kl} is confined to the input side, since its realisations were not
+propagated through the FE model.
 
-First, the reported failure probability of exactly zero should be read as ``below the resolution of the analysis'' rather than as a literal guarantee of safety. Monte Carlo sampling of $10^6$ surrogate realisations can only resolve probabilities down to $\mathcal{O}(10^{-6})$, and, more fundamentally, the surrogate is evaluated over truncated-normal inputs bounded at $\pm 50\%$ of nominal. Events in the far tail of the material distribution --- precisely those that dominate genuine structural risk --- lie outside both the sampled domain and the range over which the PCE was fitted, where it cannot be trusted to extrapolate. The defensible statement is therefore that, under the assumed input model and design load, the mean stress lies more than 400 standard deviations below the failure threshold --- $(1200-209.7)/2.38 \approx 416\sigma$ --- so the failure probability is negligible \emph{within the model's resolution}.
-
-Second, the five inputs are treated as statistically independent, whereas the elastic constants of a CFRP ply share common physical drivers --- fiber volume fraction, cure quality --- and are in reality positively correlated. The proportional scaling applied to the dependent moduli imposes perfect correlation on those quantities while independence is assumed among the five primary variables, an internally inconsistent simplification. Because $E_1$ dominates so completely, the headline conclusions are robust to this assumption; however, a correlated input model would be required before the small $G_{12}$ contribution could be interpreted quantitatively.
-
-Third, the study models a single representative panel rather than the complete fairing. Boundary conditions, shell curvature, and load introduction at the panel edges are idealised, so the absolute stress level (209.7~MPa) should be regarded as representative of the panel coupon rather than as a certified margin for the flight structure.
-
-Fourth, only aleatory uncertainty in the material parameters is propagated. The epistemic error of the deterministic finite-element model itself --- mesh discretisation, the BK mixed-mode law, the linear-elastic honeycomb idealisation --- is not quantified and would add to the reported response variance in a complete uncertainty budget.
-
-Finally, surrogate accuracy is assessed by leave-one-out cross-validation on the quadrature samples rather than against an independent validation set. For a response this smooth the distinction is minor, but for stiffer nonlinearities an out-of-sample test would be necessary to exclude optimistic error estimates.
-
-None of these caveats overturns the central finding --- that fiber-direction modulus controls the structural variability and that the panel is comfortably reliable under the design load --- but each delimits the conditions under which it applies, and each points to a concrete extension: a correlated input model, a higher load level that activates the cohesive zone, and a full-fairing model with quantified discretisation error.
+None of these overturns the central finding, that fibre-direction modulus controls the
+structural variability and that the panel is reliable by a wide margin under the design
+load, but each points to a concrete extension: a correlated input model, a load level that
+activates the cohesive zone, mapped random-field realisations, and a full-fairing model with
+quantified discretisation error.
 
 %------------------------------------------------------------------
 \section{Conclusion}
+\label{sec:conclusion}
 %------------------------------------------------------------------
 
-Non-intrusive Polynomial Chaos Expansion with Smolyak sparse quadrature was applied to quantify how manufacturing variability propagates through an Abaqus/Standard model of the JAXA H3 CFRP/aluminum-honeycomb fairing panel. The study shows that a second-order expansion built from only 66 simulations already captures the full response statistics: a third-order expansion costing 286 simulations reproduces the mean and standard deviation to four significant figures and is, if anything, marginally less accurate out-of-sample. Degree~2 is thus identified as the correct model order for this smooth, near-linear response rather than as an economy measure --- a distinction that matters when defending the result, because it rests on the demonstrated curvature of the response surface, not merely on a cost trade-off.
+Non-intrusive polynomial chaos with Smolyak sparse quadrature was applied to quantify how
+manufacturing variability propagates through an Abaqus model of an H3 fairing sandwich
+panel. A second-order expansion built from 66 simulations captures the response statistics
+completely: a third-order expansion costing 286 simulations reproduces the mean and standard
+deviation to four significant figures and is marginally less accurate out of sample. Degree
+2 is therefore the correct model order for this smooth, near-linear response rather than an
+economy measure, and the distinction matters because it rests on the demonstrated curvature
+of the response surface and not on a cost trade-off.
 
-The sensitivity analysis yields a single, actionable message for manufacturing. The fiber-direction modulus $E_1$ governs more than 99\% of the variance in both peak stress and deflection, so tightening the quality control of $E_1$ --- through fiber-volume-fraction and cure consistency --- is by far the most effective lever for reducing structural variability, whereas tolerances on shear stiffness and on the adhesive parameters are, at this load level, of little consequence. Under the design pressure the panel is reliable by a wide margin, with a peak von Mises stress of 209.7~MPa at only 17.5\% of the CFRP strength and a stress coefficient of variation of 1.13\%, and with the cohesive interface never leaving its elastic regime.
+The sensitivity analysis yields one actionable message. The fibre-direction modulus governs
+more than 99\% of the variance in both peak stress and deflection, so tightening its quality
+control is by far the most effective lever for reducing structural variability, while
+tolerances on shear stiffness and on the adhesive parameters are, at this load, of little
+consequence. Under the design pressure the panel is reliable by a wide margin, with a peak
+stress at 17.5\% of the CFRP strength and a cohesive interface that never leaves its elastic
+regime.
 
-Three extensions deepen the analysis. Bayesian inverse identification (Section~\ref{sec:bayes_inline}; full derivation in Appendix~\ref{app:bayes}) shows that the $E_1$ dominance makes the parameter tractable to infer from as few as five panel measurements, positioning the PCE as the forward model in a real-time QC feedback loop. KL random-field analysis (Appendix~\ref{app:kl}) quantifies what the scalar $E_1$ assumption costs: spatial averaging of a correlated field lowers the standard deviation of the effective panel modulus from 7{,}300 to $\approx 4{,}700$~MPa, so the scalar treatment is conservative for average-governed responses such as global deflection --- though, as discussed in Section~\ref{sec:limits}, that argument does not extend to the peak stress without further FE evaluation. The systematic surrogate comparison (Appendix~\ref{app:t13}) confirms that PCE degree~2 is the appropriate surrogate for this problem: at $N=66$ the Gaussian Process reaches $7.3\times10^{-4}$~MPa and the neural network only $3.6\times10^{-1}$~MPa, a factor of about 500 between the two data-driven surrogates, while the PCE recovers the response to machine precision. That last figure reflects exact representability --- the reference response lies in the degree-2 polynomial class --- so the fair reading is not that PCE is universally superior but that a correct structural prior is worth far more than model flexibility when only tens of simulations are affordable.
+The three extensions sharpen rather than merely supplement this picture. Bayesian
+identification shows that the parameter dominating the variance is also the one that a
+handful of stress measurements can pin down, which is what tolerance allocation requires,
+though it reduces epistemic and not aleatory uncertainty and therefore leaves the
+reliability assessment unchanged. The non-Gaussian translation field secures positivity of
+the modulus and quantifies the correlation distortion that the transform introduces, which
+proves negligible at the 5\% scatter of $E_1$ but would not be at the larger scatter of the
+interface parameters. The surrogate comparison confirms that a correct structural prior is
+worth more than model flexibility when only tens of simulations are affordable, without
+supporting any universal ranking of the methods. The principal limitation throughout is that
+the design load never initiates damage, which leaves the cohesive parameters unidentifiable;
+the natural continuation is to repeat the analysis at a load that activates the cohesive
+zone, under a correlated input model and with random-field realisations propagated through
+the solver, so that the reliability of the bonded interface and not only of the skin can be
+assessed.
 
-For this smooth, low-dimensional, and near-linear problem the PCE surrogate is preferable to the neural-network alternative on every axis that matters here --- data economy, accuracy, and the analytical availability of Sobol indices --- although that balance would shift towards data-driven surrogates for higher-dimensional or strongly nonlinear responses such as post-damage behaviour. The principal limitation of the present work is that the cohesive parameters remain unidentifiable because the design load never initiates damage; the natural continuation is therefore to repeat the analysis at a load level that activates the cohesive zone, under a correlated input model incorporating a KL random field for $E_1$ (Appendix~\ref{app:kl}), and with a full-fairing geometry, so that the reliability of the bonded interface --- and not only of the skin --- can be assessed.
-
-%------------------------------------------------------------------
-\bibliographystyle{unsrt}
-\begin{thebibliography}{9}
-
-\bibitem{ghanem1991}
-R.~G.~Ghanem and P.~D.~Spanos,
-\textit{Stochastic Finite Elements: A Spectral Approach}.
-Springer, 1991.
-
-\bibitem{sudret2000}
-B.~Sudret and A.~Der~Kiureghian,
-``Stochastic Finite Element Methods and Reliability: A State-of-the-Art Report,''
-Report No.\ UCB/SEMM-2000/08, University of California, Berkeley, 2000.
-
-\bibitem{sudret2008}
-B.~Sudret,
-``Global sensitivity analysis using polynomial chaos expansions,''
-\textit{Reliability Engineering \& System Safety}, vol.~93, no.~7, pp.~964--979, 2008.
-
-\bibitem{smolyak1963}
-S.~A.~Smolyak,
-``Quadrature and interpolation formulas for tensor products of certain classes of functions,''
-\textit{Dokl. Akad. Nauk SSSR}, vol.~148, no.~5, pp.~1042--1045, 1963.
-
-\bibitem{fajraoui2017}
-N.~Fajraoui, S.~Marelli, and B.~Sudret,
-``Sequential design of experiment for sparse polynomial chaos expansions,''
-\textit{SIAM/ASA J. Uncertainty Quantification}, vol.~5, no.~1, pp.~1061--1085, 2017.
-
-\bibitem{saltelli2008}
-A.~Saltelli et al.,
-\textit{Global Sensitivity Analysis: The Primer}.
-Wiley, 2008.
-
-\bibitem{faber2012}
-M.~H.~Faber,
-\textit{Statistics and Probability Theory}.
-Springer, 2012.
-
-\bibitem{tarantola2005}
-A.~Tarantola,
-\textit{Inverse Problem Theory and Methods for Model Parameter Estimation}.
-SIAM, 2005.
-
-\bibitem{marzouk2009}
-Y.~M.~Marzouk, H.~N.~Najm, and L.~A.~Rahn,
-``Stochastic spectral methods for efficient Bayesian solution of inverse problems,''
-\textit{Journal of Computational Physics}, vol.~224, no.~2, pp.~560--586, 2007.
-
-\bibitem{loeve1978}
-M.~Lo\`{e}ve,
-\textit{Probability Theory~II}, 4th~ed.
-Springer, 1978.
-
-\bibitem{phoon1999}
-K.-K.~Phoon, S.-T.~Quek, Y.-W.~Chow, and S.-L.~Lee,
-``Reliability analysis of pile settlement,''
-\textit{Journal of Geotechnical and Geoenvironmental Engineering}, vol.~125, no.~11, pp.~988--997, 1999.
-
-\bibitem{rasmussen2006}
-C.~E.~Rasmussen and C.~K.~I.~Williams,
-\textit{Gaussian Processes for Machine Learning}.
-MIT Press, 2006.
-
-\bibitem{forrester2008}
-A.~Forrester, A.~S\'{o}bester, and A.~Keane,
-\textit{Engineering Design via Surrogate Modelling: A Practical Guide}.
-Wiley, 2008.
-
-\end{thebibliography}
-
-%------------------------------------------------------------------
-\appendix
-\section{Software and Computational Environment}
-
-\begin{table}[h]
-\centering
-\caption{Software versions and computational environment.}
-\begin{tabular}{ll}
-\toprule
-Component & Version / Details \\
-\midrule
-Abaqus/Standard & 2024 \\
-Python          & 3.12 \\
-chaospy         & latest \\
-PyTorch         & 2.10.0 \\
-Server          & 172.17.36.98, 4$\times$GPU \\
-Total CPU-hours & 352 jobs $\times$ $\approx$4~min $\approx$ 23~h \\
-\bottomrule
-\end{tabular}
-\label{tab:env}
-\end{table}
-
-\section{Repository File Structure}
-
-\begin{verbatim}
-Stochastic-Finite-Element-Methods-2026/
-  pce_driver.py              # PCE UQ main driver (Smolyak, chaospy)
-  extract_pce_qoi.py         # Abaqus Python QoI extractor (odbAccess)
-  reliability_analysis.py    # Post-processing, Sobol indices, plots
-  report.pdf / slides.pdf    # Report and presentation
-  figures/
-    pce_uq/                  # Plots for degree=2 (66 jobs)
-    pce_uq_deg3/             # Plots for degree=3 (286 jobs)
-\end{verbatim}
-
-Abaqus ODB files ($\approx 293$~MB each) are stored on the LUH compute server and not included in the repository.
-
-%------------------------------------------------------------------
-\section{Bayesian Parameter Identification: Full Derivation}
-\label{app:bayes}
-%------------------------------------------------------------------
-
-\subsection{Framework}
-
-Let $\theta = E_1$ be the scalar parameter to be identified. Bayes' theorem:
-\begin{equation}
-    p(\theta \mid y_\text{obs}) \propto p(y_\text{obs} \mid \theta)\, p(\theta).
-\end{equation}
-\textbf{Prior:} $E_1 \sim \mathrm{TruncNormal}(\mu_{E_1},\, \sigma_{E_1},\, 0.5\mu_{E_1},\, 1.5\mu_{E_1})$, with $\mu_{E_1} = 146{,}000$~MPa, $\sigma_{E_1} = 7{,}300$~MPa. \textbf{Likelihood:} each of $k$ stress measurements corrupted by instrument noise $\varepsilon \sim \mathcal{N}(0, \sigma_\text{meas}^2)$ with $\sigma_\text{meas} = 2.0$~MPa:
-\begin{equation}
-    y_j = \underbrace{c_0 + c_1\,\xi_{E_1}}_{\hat{\sigma}_\text{vM}(E_1)} + \varepsilon_j, \qquad c_0 = 209.7\ \text{MPa},\quad c_1 = 2.365\ \text{MPa}.
-\end{equation}
-Because the prior is approximately Gaussian (truncation at $\pm 10\sigma$) and the likelihood is Gaussian-linear in $\xi_{E_1}$, the posterior is also Gaussian (conjugate update):
-\begin{equation}
-    \mu_\text{post} = \frac{c_1(\bar{y} - c_0)/\sigma_\text{eff}^2}{1 + c_1^2/\sigma_\text{eff}^2},
-    \qquad
-    \sigma_\text{post}^2 = \frac{1}{1 + c_1^2/\sigma_\text{eff}^2},
-    \qquad \sigma_\text{eff}^2 = \sigma_\text{meas}^2/k.
-\end{equation}
-
-\subsection{Synthetic Experiment and Results}
-
-True $E_1 = 153{,}000$~MPa; observed $y_\text{obs} = 212.22$~MPa. Posterior at $k=1$: $\mathcal{N}(150{,}535\ \text{MPa},\ 4{,}713^2\ \text{MPa}^2)$.
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=\textwidth]{figures/topic6_bayesian/bayes_prior_posterior_E1.pdf}
-    \caption{Prior and posterior of $E_1$ for $k = 1, 5, 20$ measurements.}
-\end{figure}
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=\textwidth]{figures/topic6_bayesian/bayes_likelihood_posterior_2d.pdf}
-    \caption{Likelihood and posterior in $(\xi_{E_1}, \xi_{G_{12}})$ space. The likelihood ridge is parallel to $\xi_{G_{12}}$, confirming that only $E_1$ is identifiable from stress observations.}
-\end{figure}
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=0.85\textwidth]{figures/topic6_bayesian/bayes_propagated_stress.pdf}
-    \caption{Propagated stress PDF before and after Bayesian identification ($k=5, 20$).}
-\end{figure}
-
-%------------------------------------------------------------------
-\section{Spatially Varying Random Field Representation of $E_1$ via Karhunen--Lo\`{e}ve Expansion}
-\label{app:kl}
-%------------------------------------------------------------------
-
-\subsection{KL Expansion}
-
-A zero-mean Gaussian random field $Z(x)$ with covariance $C(x_1, x_2)$ is represented as~\cite{loeve1978}:
-\begin{equation}
-    E_1(x,y) = \mu_{E_1} + \sigma_{E_1} \sum_{i=1}^{M} \sqrt{\tilde{\lambda}_i}\, \phi_i(x,y)\, \xi_i, \qquad \xi_i \sim \mathcal{N}(0,1),
-\end{equation}
-where $(\tilde{\lambda}_i, \phi_i)$ are the normalised eigenpairs of the covariance integral equation. An anisotropic exponential kernel is adopted:
-\begin{equation}
-    C(x_1,y_1;\,x_2,y_2) = \sigma_{E_1}^2\,\exp\!\!\left(-\frac{|x_1{-}x_2|}{l_{cx}} - \frac{|y_1{-}y_2|}{l_{cy}}\right).
-\end{equation}
-Panel dimensions: $L_x = 600$~mm, $L_y = 400$~mm. Three correlation length cases studied: short ($l_{cx}{=}200, l_{cy}{=}150$~mm), medium ($l_{cx}{=}400, l_{cy}{=}300$~mm), long ($l_{cx}{=}1200, l_{cy}{=}800$~mm).
-
-\textit{Consistency with the scalar input model.} The field above is Gaussian, whereas the forward study of Section~\ref{sec:fem} draws $E_1$ from a normal distribution truncated to $[0.5\mu,\,1.5\mu]$. For $E_1$ the two are numerically indistinguishable: with $\mathrm{CoV} = 5\%$ the truncation bounds lie at $\mu \pm 10\sigma$, so the truncated and untruncated laws agree to far beyond the precision of any quantity reported here. No such equivalence would hold for the cohesive parameters, whose $\mathrm{CoV} = 50\%$ places the same relative bounds at $\mu \pm 1\sigma$; they are not represented as fields in this study.
-
-The eigenpairs are obtained by direct eigendecomposition of the covariance matrix sampled on a uniform $20 \times 15$ grid, i.e.\ a point-collocation (Nystr\"{o}m) discretisation of the Fredholm integral equation rather than the Galerkin projection. On a uniform grid the two differ only by the constant cell measure, which cancels in the explained-variance ratios reported below; the discrete eigenvectors are orthonormal in $\ell^2$ and reproduce the sampled covariance exactly as $C = \Phi \Lambda \Phi^{\mathsf{T}}$. The grid resolves the shortest correlation length studied with roughly six points per correlation length.
-
-\subsection{Results}
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=\textwidth]{figures/topic9_kl/kl_eigenvalue_decay.pdf}
-    \caption{Left: relative eigenvalue decay. Right: explained variance vs $M$. Long correlation needs only 38 modes for 99\%; short requires 164.}
-\end{figure}
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=\textwidth]{figures/topic9_kl/kl_mode_shapes.pdf}
-    \caption{First four KL mode shapes ($l_{cx}=400, l_{cy}=300$~mm). Mode~1 is nearly uniform (recovers scalar limit); higher modes capture spatial gradients.}
-\end{figure}
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=\textwidth]{figures/topic9_kl/kl_sample_fields.pdf}
-    \caption{Six realisations of $E_1(x,y)$ with $M=10$ modes (medium correlation length, 82.7\% variance).}
-\end{figure}
-
-%------------------------------------------------------------------
-\section{Extended Surrogate Comparison: PCE vs GP vs NN}
-\label{app:t13}
-%------------------------------------------------------------------
-
-\subsection{Setup}
-
-Surrogates are trained on $N \in \{10, 15, 20, 30, 40, 66, 100, 150, 286\}$ random points drawn from $\mathcal{N}(0,I_5)$ and evaluated on a fixed test set of 20{,}000 points. Results are medians over 5 random seeds. The ``true'' function is the analytical PCE surrogate (degree~2) derived from the existing Abaqus calibration.
-
-\textit{What this experiment can and cannot show.} The reference function is itself a degree-2 polynomial in the Hermite basis, so a degree-2 PCE lies in a model class that contains it exactly. The $\mathcal{O}(10^{-13})$~MPa figure below is therefore a measure of \emph{exact representability} and of the conditioning of the regression --- it is not a generalisation error, and it must not be read as evidence that PCE is $10^{12}$ times more accurate than a neural network in any general sense. What the comparison does measure is the value of a correct structural prior under a severe data budget: given that the response really is smooth and near-linear, the polynomial basis extracts it from tens of samples, whereas the Gaussian Process must infer smoothness from the data and the network must infer the functional form as well. Had the reference response contained a feature outside the polynomial class --- a damage bifurcation, a threshold, a discontinuous derivative --- the ranking could reverse, and Section~\ref{sec:limits} identifies exactly that regime as the natural continuation of this work.
-
-\subsection{Results}
-
-\begin{table}[ht]
-\centering
-\caption{Test RMSE at $N=66$ (median, 5 seeds).}
-\begin{tabular}{lc}
-\toprule
-Surrogate & RMSE [MPa] \\
-\midrule
-PCE degree 1 & $8.9 \times 10^{-3}$ \\
-PCE degree 2 & $3.0 \times 10^{-13}$ \\
-Gaussian Process & $7.3 \times 10^{-4}$ \\
-Neural Network   & $3.6 \times 10^{-1}$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=\textwidth]{figures/topic13_comparison/t13_epistemic_aleatory.pdf}
-    \caption{Left: GP epistemic uncertainty (posterior standard deviation of the 5-D GP, evaluated along $\xi_{E_1}$ with the remaining inputs at zero) against the true response at $N=66$. Right: the same epistemic spread applied to the propagated stress PDF. The epistemic contribution is $0.008$~MPa against an aleatory response standard deviation of $2.37$~MPa, i.e.\ $0.3\%$: at this training size the surrogate error is negligible beside the physical scatter.}
-\end{figure}
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=0.90\textwidth]{figures/topic13_comparison/t13_sensitivity_comparison.pdf}
-    \caption{Sensitivity attribution: PCE analytical Sobol vs GP/NN permutation importance. All methods agree on $E_1$ dominance; only PCE provides analytically exact indices.}
-\end{figure}
+\bibliography{References}
 
 \end{document}

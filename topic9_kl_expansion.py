@@ -225,6 +225,90 @@ fig.savefig(f'{OUTDIR}/kl_effective_variance.pdf')
 plt.close(fig)
 print(f"Saved: {OUTDIR}/kl_effective_variance.pdf")
 
+# ── Non-Gaussian (translation) field ───────────────────────────────────────
+# A Gaussian field assigns non-zero probability to negative stiffness. The
+# standard remedy is a translation field (Grigoriu 1998): map the unit-variance
+# Gaussian KL field Z(x) through a memoryless transform so the marginal becomes
+# the target law while the field keeps a KL representation underneath.
+#
+#     H(x) = F^{-1}( Phi( Z(x) ) )
+#
+# For a lognormal target this collapses to H(x) = exp(mu_ln + sig_ln Z(x)).
+# The transform is monotone, so it preserves rank correlation but NOT linear
+# correlation: for the lognormal case the induced correlation is
+#
+#     rho_H = (exp(sig_ln^2 rho_Z) - 1) / (exp(sig_ln^2) - 1)
+#
+# so the Gaussian kernel must be pre-distorted if a target rho_H is prescribed.
+
+def lognormal_params(mean, std):
+    """Underlying normal (mu, sigma) of a lognormal with the given moments."""
+    sig2 = np.log(1.0 + (std / mean) ** 2)
+    return np.log(mean) - 0.5 * sig2, np.sqrt(sig2)
+
+
+def translate_lognormal(z, mean, std):
+    """Memoryless transform of a standard-normal field to a lognormal marginal."""
+    mu_ln, sig_ln = lognormal_params(mean, std)
+    return np.exp(mu_ln + sig_ln * z)
+
+
+def rho_lognormal(rho_z, sig_ln):
+    """Correlation induced on the lognormal field by a Gaussian correlation rho_z."""
+    s2 = sig_ln ** 2
+    return (np.exp(s2 * rho_z) - 1.0) / (np.exp(s2) - 1.0)
+
+
+lcx, lcy = 400, 300
+C_unit = cov_matrix(coords, lcx, lcy, sigma2=1.0)      # unit-variance Gaussian
+lam_u, phi_u = kl_decompose(C_unit)
+M_NG = 20
+rng_ng = np.random.default_rng(11)
+
+mu_ln_E1, sig_ln_E1 = lognormal_params(MU_E1, SIG_E1)
+
+N_REAL = 4000
+z_samples = np.array([kl_sample(lam_u[:M_NG], phi_u[:, :M_NG],
+                                rng_ng.standard_normal(M_NG))
+                      for _ in range(N_REAL)])           # (N_REAL, N_TOTAL)
+gauss_field = MU_E1 + SIG_E1 * z_samples                 # current model
+logn_field = translate_lognormal(z_samples, MU_E1, SIG_E1)
+
+fig, axes = plt.subplots(1, 2, figsize=use(1.0, 0.42))
+
+# Left: marginal distributions at a representative point
+pt = N_TOTAL // 2
+axes[0].hist(gauss_field[:, pt] / 1e3, bins=60, density=True, color=BLUE,
+             alpha=0.45, label='Gaussian field (current model)')
+axes[0].hist(logn_field[:, pt] / 1e3, bins=60, density=True, color=RED,
+             alpha=0.45, label='Lognormal translation field')
+axes[0].axvline(MU_E1 / 1e3, color='k', ls=':', lw=1.4, label='Mean')
+axes[0].set_xlabel(r'$E_1$ [GPa]')
+axes[0].set_ylabel('Probability density')
+axes[0].set_title('Marginal at a representative point')
+axes[0].legend(fontsize=9)
+
+# Right: how far the induced correlation departs from the Gaussian one,
+# as a function of the coefficient of variation
+rho_z = np.linspace(0, 1, 200)
+for cov_, col, lbl in [(0.05, BLUE, r'CoV $=5\%$ (this study)'),
+                       (0.30, GREEN, r'CoV $=30\%$'),
+                       (0.60, RED, r'CoV $=60\%$')]:
+    _, s_ln = lognormal_params(1.0, cov_)
+    axes[1].plot(rho_z, rho_lognormal(rho_z, s_ln) - rho_z, color=col, lw=2.0, label=lbl)
+axes[1].axhline(0.0, color='k', ls='--', lw=1.0, alpha=0.6)
+axes[1].set_xlabel(r'Gaussian correlation $\rho_Z$')
+axes[1].set_ylabel(r'$\rho_H - \rho_Z$')
+axes[1].set_title('Correlation distortion of the translation')
+axes[1].legend(fontsize=9)
+
+fig.suptitle('Non-Gaussian Random Field via Memoryless Translation of the KL Field',
+             fontsize=12)
+fig.tight_layout()
+fig.savefig(f'{OUTDIR}/kl_nongaussian.pdf')
+plt.close(fig)
+print(f"Saved: {OUTDIR}/kl_nongaussian.pdf")
+
 # ── Summary stats ──────────────────────────────────────────────────────────
 print("\n--- Modes needed for 99% variance ---")
 for lc_pair, lbl in zip([(200, 150), (400, 300), (1200, 800)], LABELS):
@@ -234,5 +318,18 @@ for lc_pair, lbl in zip([(200, 150), (400, 300), (1200, 800)], LABELS):
     ev = explained_variance(lam_, N_TOTAL)
     M99 = int(np.searchsorted(ev, 0.99)) + 1
     print(f"  {lbl[:30]:30s}: M={M99} modes")
+
+print("\n--- Non-Gaussian translation field ---")
+print(f"  lognormal underlying sigma      : {sig_ln_E1:.6f}")
+print(f"  Gaussian field: min over sample : {gauss_field.min():,.0f} MPa")
+print(f"  Lognormal field: min over sample: {logn_field.min():,.0f} MPa (positive by construction)")
+print(f"  Lognormal skewness (theory)     : "
+      f"{(np.exp(sig_ln_E1**2) + 2) * np.sqrt(np.exp(sig_ln_E1**2) - 1):.4f}")
+print(f"  max |rho_H - rho_Z| at CoV=5%   : "
+      f"{np.max(np.abs(rho_lognormal(rho_z, sig_ln_E1) - rho_z)):.2e}")
+for cov_ in (0.30, 0.60):
+    _, s_ = lognormal_params(1.0, cov_)
+    print(f"  max |rho_H - rho_Z| at CoV={cov_*100:.0f}%  : "
+          f"{np.max(np.abs(rho_lognormal(rho_z, s_) - rho_z)):.2e}")
 
 print("\nTopic 9 complete.")
