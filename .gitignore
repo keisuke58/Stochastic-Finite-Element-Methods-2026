@@ -9,3 +9,9 @@
 *.lof
 *.lot
 __pycache__/
+*.spl
+*.bcf
+*.run.xml
+*.fls
+*.fdb_latexmk
+*.synctex.gz
