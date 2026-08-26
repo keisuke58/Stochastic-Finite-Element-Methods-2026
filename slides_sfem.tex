@@ -261,15 +261,15 @@ Ranking is set by which uncertainty the structure is configured to \emph{amplify
 \toprule
 LOO RMSE & PCE deg 2 & PCE deg 3 & NN (66) & NN (286) \\
 \midrule
-$\sigma_\text{vM}^\text{max}$ (MPa) & $\mathbf{9.4\times10^{-4}}$ & $1.5\times10^{-3}$ & $7.2\times10^{-4}$ & $1.8\times10^{-2}$ \\
-$u^\text{max}$ (mm)                 & $\mathbf{4.2\times10^{-5}}$ & $7.1\times10^{-5}$ & $2.7\times10^{-5}$ & $1.6\times10^{-3}$ \\
+$\sigma_\text{vM}^\text{max}$ (MPa) & $9.4\times10^{-4}$ & $1.5\times10^{-3}$ & $7.2\times10^{-4}$ & $\mathbf{1.8\times10^{-2}}$ \\
+$u^\text{max}$ (mm)                 & $4.2\times10^{-5}$ & $7.1\times10^{-5}$ & $2.7\times10^{-5}$ & $\mathbf{1.6\times10^{-3}}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 \begin{itemize}\small
-  \item PCE degree 2 is the most accurate; degree 3 is slightly \emph{worse} (over-parameterisation on a near-linear response).
-  \item NN error \textbf{grows} an order of magnitude from 66 to 286 points --- overfitting.
-  \item PCE returns Sobol indices analytically; NN would need a separate Monte Carlo study.
+  \item At $N=66$ both are accurate to $\sim10^{-3}$~MPa --- the NN marginally lower on this metric.
+  \item The difference is \textbf{stability}: NN error \textbf{grows} $25\times$ from 66 to 286 points (overfitting a smooth response), while PCE deg.~2 holds; deg.~3 is slightly \emph{worse} (over-parameterisation).
+  \item PCE returns Sobol indices analytically; the NN would need a separate Monte Carlo study.
 \end{itemize}
 \end{frame}
 \note{How does polynomial chaos compare with a neural network trained on the same data? The polynomial-chaos expansion at degree two attains the lowest leave-one-out error of any configuration. Tellingly, degree three performs slightly worse --- fitting fifty-six coefficients to two hundred eighty-six points introduces estimation variance in redundant high-order terms, the classic symptom of mild over-parameterisation on an almost-linear response. The neural network shows the same pathology far more sharply: its out-of-sample error grows by an order of magnitude when the training set is enlarged from sixty-six to two hundred eighty-six points, because a fixed network with several thousand weights overfits when the underlying map is this smooth. This is not a generic claim that polynomial chaos beats neural networks; it is a statement about the match between method and problem. Polynomial chaos encodes a strong prior --- that the response is a low-order polynomial --- and when that prior is correct it extracts accurate statistics from very few samples and returns the sensitivity indices for free.}
