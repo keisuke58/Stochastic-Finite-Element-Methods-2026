@@ -23,7 +23,7 @@
 
 \title{Reliability Assessment of the JAXA H3 Fairing under Manufacturing Variability}
 \subtitle{Polynomial Chaos Expansion as a Stochastic FEM Surrogate}
-\author{Keisuke Nishioka}
+\author{Keisuke Nishioka \quad {\normalsize Matriculation No.\ 10081049}}
 \institute{Stochastic Finite Element Methods --- Dr.\ Z.\ Zheng / Prof.\ U.\ Nackenhorst \quad LUH SoSe\,2026}
 \date{}
 
@@ -56,7 +56,9 @@ Propagate input uncertainty through a deterministic FE model to obtain response 
 \begin{columns}[T]
 \begin{column}{0.36\textwidth}
 \begin{center}
-\includegraphics[height=0.74\textheight]{fairing_geometry.png}
+\includegraphics[height=0.70\textheight]{fairing_geometry.png}\\[0.3em]
+{\tiny Ogive nose over a cylindrical barrel. The UQ study takes a
+representative wall panel of this shell.}
 \end{center}
 \end{column}
 \begin{column}{0.62\textwidth}
@@ -262,7 +264,8 @@ CoV & bound & mass cut \\
 \begin{columns}[c]
 \begin{column}{0.54\textwidth}
 \begin{center}
-\includegraphics[height=0.82\textheight]{fairing_odb_mises.png}
+\includegraphics[height=0.70\textheight]{fairing_odb_mises.png}\\[0.3em]
+{\tiny One deterministic solve at one quadrature node.}
 \end{center}
 \end{column}
 \begin{column}{0.44\textwidth}
@@ -300,7 +303,7 @@ response surface. Had higher-order terms mattered, the extra 220 simulations wou
 moved the standard deviation. They did not.}
 \end{column}
 \begin{column}{0.40\textwidth}
-\begin{alertblock}{}
+\begin{alertblock}{Takeaway}
 \footnotesize Degree 2 is the \textbf{correct model order}, not an economy measure.\\[0.2em]
 SDEG $\equiv 0$ in all \textbf{352} runs.
 \end{alertblock}
@@ -326,7 +329,7 @@ $K_n,G_{Ic},t_n$ & $\approx 0$ & $\approx 0$ \\
 {\footnotesize $S_i\approx S_T^i$: inputs act additively, no resolvable interactions.}
 \vspace{0.5em}
 
-\begin{alertblock}{}
+\begin{alertblock}{What this means}
 \footnotesize The 5-D problem collapses to \textbf{effectively 1-D} in $E_1$.\\[0.2em]
 $G_{12}$ carries \emph{twice} the CoV of $E_1$ yet contributes $<1\%$ --- sensitivity, not
 scatter, sets the ranking.
@@ -334,7 +337,10 @@ scatter, sets the ranking.
 \end{column}
 \begin{column}{0.54\textwidth}
 \centering
-\includegraphics[width=\linewidth]{sobol_max_smises.pdf}
+\includegraphics[width=\linewidth]{sobol_max_smises.pdf}\\[0.4em]
+{\scriptsize $S_i$ (blue) beside $S_T^i$ (red). The pairs coincide, so no
+variance is held in interactions; the cohesive bars vanish because damage never
+initiates.}
 \end{column}
 \end{columns}
 \end{frame}
@@ -349,7 +355,7 @@ scatter, sets the ranking.
   \item Panel carries load by \textbf{membrane action}: stress and deflection set by axial stiffness $E_1 t$ $\Rightarrow$ large $\partial Y/\partial E_1$, and $E_1$ still carries 5\% scatter.
   \item $G_{12}$ has \emph{twice} the CoV but tiny $\partial Y/\partial G_{12}$ $\Rightarrow$ suppressed.
 \end{itemize}
-\begin{alertblock}{}
+\begin{alertblock}{The rule}
 Ranking is set by which uncertainty the structure is configured to \emph{amplify} --- not by which input is most uncertain.
 \end{alertblock}
 \end{frame}
@@ -379,8 +385,9 @@ $u^\text{max}$ (mm)                 & $4.2\times10^{-5}$ & $7.1\times10^{-5}$ & 
 \end{column}
 \begin{column}{0.40\textwidth}
 \centering
-\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[-0.1em]
-{\tiny The NN curve turns \emph{upward} --- the overfitting signature.}
+\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[0.3em]
+{\tiny Test RMSE vs training-set size, median and IQR over 5 seeds. The NN
+curve turns \emph{upward} --- more data, worse fit.}
 \end{column}
 \end{columns}
 \end{frame}
@@ -390,7 +397,10 @@ $u^\text{max}$ (mm)                 & $4.2\times10^{-5}$ & $7.1\times10^{-5}$ & 
 \begin{columns}[T]
 \begin{column}{0.56\textwidth}
 \centering
-\includegraphics[width=1.06\linewidth]{reliability_margin.png}
+\includegraphics[width=1.06\linewidth]{reliability_margin.png}\\[0.5em]
+{\scriptsize Density and limit on one axis. The PDF is the narrow spike on the
+left: $\pm5\sigma$ spans $\approx\!24$~MPa against a 990~MPa margin. No tail
+shape survives that separation --- hence $P_f=0$ exactly.}
 \end{column}
 \begin{column}{0.44\textwidth}
 \[
@@ -421,12 +431,15 @@ KL expansion of an anisotropic exponential kernel, then:
         $3.8\!\times\!10^{-2}$ (60\%).
   \item Spatial averaging: $\sigma(\overline{E_1})\approx 4{,}700 < 7{,}300$~MPa.
 \end{itemize}
-\begin{alertblock}{}
+\begin{alertblock}{Scope of the claim}
 \footnotesize Conservative for \textbf{average-governed} responses --- not for peak stress.
 \end{alertblock}
 \end{column}
 \begin{column}{0.46\textwidth}
-\includegraphics[width=\linewidth]{kl_effective_variance.pdf}
+\includegraphics[width=\linewidth]{kl_effective_variance.pdf}\\[0.4em]
+{\tiny Std of $\overline{E_1}$ vs KL truncation $M$, three correlation-length
+pairs; dashed $=$ scalar model, 7.3~GPa. Longer correlation $\Rightarrow$ less
+averaging $\Rightarrow$ closer to the scalar case.}
 \end{column}
 \end{columns}
 \end{frame}
@@ -452,15 +465,18 @@ NN          & $3.6\times10^{-1}$\ MPa \\
 \end{tabular}
 \end{table}
 \vspace{-0.3em}
-\begin{alertblock}{}
+\begin{alertblock}{Read this correctly}
 \footnotesize Reference response \emph{is} a deg.-2 polynomial $\Rightarrow$ $10^{-13}$ measures
 \textbf{exact representability}, not generalisation. The meaningful factor
 ($\approx\!500\times$) is \textbf{GP vs NN}.
 \end{alertblock}
 \end{column}
 \begin{column}{0.45\textwidth}
-\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[0.2em]
-{\footnotesize GP epistemic std 0.008 MPa vs aleatory 2.37 MPa $=$ \textbf{0.3\%}.}
+\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[0.3em]
+{\scriptsize Test RMSE vs training-set size, median and IQR over 5 seeds.
+Only the GP carries an error bar of its own: epistemic std 0.008~MPa against an
+aleatory scatter of 2.37~MPa $=$ \textbf{0.3\%}, so surrogate error is
+negligible beside the physical variability.}
 \end{column}
 \end{columns}
 \end{frame}
@@ -480,13 +496,18 @@ Conjugate Gaussian update on the mean of $k$ measurements:
 \textbf{Key result:} posterior std falls from 7{,}300~MPa to
 2{,}582 ($k{=}5$), \textbf{1{,}885 ($k{=}10$, $-74\%$)}, 1{,}356 ($k{=}20$).
 \vspace{-0.2em}
-\begin{alertblock}{}
+\begin{alertblock}{What it does and does not do}
 \footnotesize Reduces \textbf{epistemic} uncertainty $\Rightarrow$ tolerance allocation.
 $P_f$ is already 0 at $416\sigma$, so reliability is \emph{unchanged}.
 \end{alertblock}
 \end{column}
 \begin{column}{0.45\textwidth}
-\includegraphics[width=\linewidth]{bayes_convergence_k.pdf}
+\includegraphics[width=\linewidth]{bayes_convergence_k.pdf}\\[0.4em]
+{\footnotesize Posterior mean of $E_1$ and its 95\% credible band against the
+number of measurements $k$. Each $k$ uses the mean of $k$ \emph{independent}
+draws, so the band contracts as $1/\sqrt{k}$ and stays centred on the true value
+(dotted). Dashed grey is the prior 95\% interval --- the width the data has to
+beat.}
 \end{column}
 \end{columns}
 \end{frame}
