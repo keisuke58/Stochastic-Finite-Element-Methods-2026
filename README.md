@@ -99,7 +99,7 @@ A TeX Live installation (2025) is required for the LaTeX-rendered figure fonts (
 
 ## Method in One Paragraph
 
-The response surface u(ξ) is expanded in multivariate orthogonal polynomials of the standardised random inputs ξ, with coefficients computed by **pseudo-spectral projection** on a Smolyak sparse quadrature grid. Because only *input files and output databases* of the FE solver are touched, the approach is fully **non-intrusive** — Abaqus is used as a black box. Statistics (mean, variance), global sensitivities (Sobol' indices), and full output PDFs then follow *analytically* from the PCE coefficients, and the same surrogate powers the Bayesian likelihood evaluations in Topic 6 at negligible cost.
+The response surface u(ξ) is expanded in multivariate orthogonal polynomials of the standardised random inputs ξ, with the design points placed on a **Smolyak sparse quadrature grid**. Sparse Gauss--Hermite rules generally produce negative weights, so the coefficients are fitted by **least-squares regression** on those points rather than by quadrature projection; with 66 points against 21 unknowns the system is over-determined, which also permits leave-one-out validation. Because only *input files and output databases* of the FE solver are touched, the approach is fully **non-intrusive** — Abaqus is used as a black box. Statistics (mean, variance), global sensitivities (Sobol' indices), and full output PDFs then follow *analytically* from the PCE coefficients, and the same surrogate powers the Bayesian likelihood evaluations in Topic 6 at negligible cost.
 
 ## Course Context
 
