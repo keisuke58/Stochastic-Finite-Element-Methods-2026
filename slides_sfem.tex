@@ -56,7 +56,9 @@ Propagate input uncertainty through a deterministic FE model to obtain response 
 \begin{columns}[T]
 \begin{column}{0.36\textwidth}
 \begin{center}
-\includegraphics[height=0.74\textheight]{fairing_geometry.png}
+\includegraphics[height=0.70\textheight]{fairing_geometry.png}\\[0.3em]
+{\tiny Ogive nose over a cylindrical barrel. The UQ study takes a
+representative wall panel of this shell.}
 \end{center}
 \end{column}
 \begin{column}{0.62\textwidth}
@@ -262,7 +264,8 @@ CoV & bound & mass cut \\
 \begin{columns}[c]
 \begin{column}{0.54\textwidth}
 \begin{center}
-\includegraphics[height=0.82\textheight]{fairing_odb_mises.png}
+\includegraphics[height=0.70\textheight]{fairing_odb_mises.png}\\[0.3em]
+{\tiny One deterministic solve at one quadrature node.}
 \end{center}
 \end{column}
 \begin{column}{0.44\textwidth}
@@ -334,7 +337,10 @@ scatter, sets the ranking.
 \end{column}
 \begin{column}{0.54\textwidth}
 \centering
-\includegraphics[width=\linewidth]{sobol_max_smises.pdf}
+\includegraphics[width=\linewidth]{sobol_max_smises.pdf}\\[0.4em]
+{\scriptsize $S_i$ (blue) beside $S_T^i$ (red). The pairs coincide, so no
+variance is held in interactions; the cohesive bars vanish because damage never
+initiates.}
 \end{column}
 \end{columns}
 \end{frame}
@@ -379,8 +385,9 @@ $u^\text{max}$ (mm)                 & $4.2\times10^{-5}$ & $7.1\times10^{-5}$ & 
 \end{column}
 \begin{column}{0.40\textwidth}
 \centering
-\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[-0.1em]
-{\tiny The NN curve turns \emph{upward} --- the overfitting signature.}
+\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[0.3em]
+{\tiny Test RMSE vs training-set size, median and IQR over 5 seeds. The NN
+curve turns \emph{upward} --- more data, worse fit.}
 \end{column}
 \end{columns}
 \end{frame}
@@ -390,7 +397,10 @@ $u^\text{max}$ (mm)                 & $4.2\times10^{-5}$ & $7.1\times10^{-5}$ & 
 \begin{columns}[T]
 \begin{column}{0.56\textwidth}
 \centering
-\includegraphics[width=1.06\linewidth]{reliability_margin.png}
+\includegraphics[width=1.06\linewidth]{reliability_margin.png}\\[0.5em]
+{\scriptsize Density and limit on one axis. The PDF is the narrow spike on the
+left: $\pm5\sigma$ spans $\approx\!24$~MPa against a 990~MPa margin. No tail
+shape survives that separation --- hence $P_f=0$ exactly.}
 \end{column}
 \begin{column}{0.44\textwidth}
 \[
@@ -426,7 +436,10 @@ KL expansion of an anisotropic exponential kernel, then:
 \end{alertblock}
 \end{column}
 \begin{column}{0.46\textwidth}
-\includegraphics[width=\linewidth]{kl_effective_variance.pdf}
+\includegraphics[width=\linewidth]{kl_effective_variance.pdf}\\[0.4em]
+{\tiny Std of $\overline{E_1}$ vs KL truncation $M$, three correlation-length
+pairs; dashed $=$ scalar model, 7.3~GPa. Longer correlation $\Rightarrow$ less
+averaging $\Rightarrow$ closer to the scalar case.}
 \end{column}
 \end{columns}
 \end{frame}
@@ -459,8 +472,11 @@ NN          & $3.6\times10^{-1}$\ MPa \\
 \end{alertblock}
 \end{column}
 \begin{column}{0.45\textwidth}
-\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[0.2em]
-{\footnotesize GP epistemic std 0.008 MPa vs aleatory 2.37 MPa $=$ \textbf{0.3\%}.}
+\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[0.3em]
+{\scriptsize Test RMSE vs training-set size, median and IQR over 5 seeds.
+Only the GP carries an error bar of its own: epistemic std 0.008~MPa against an
+aleatory scatter of 2.37~MPa $=$ \textbf{0.3\%}, so surrogate error is
+negligible beside the physical variability.}
 \end{column}
 \end{columns}
 \end{frame}
@@ -486,7 +502,12 @@ $P_f$ is already 0 at $416\sigma$, so reliability is \emph{unchanged}.
 \end{alertblock}
 \end{column}
 \begin{column}{0.45\textwidth}
-\includegraphics[width=\linewidth]{bayes_convergence_k.pdf}
+\includegraphics[width=\linewidth]{bayes_convergence_k.pdf}\\[0.4em]
+{\footnotesize Posterior mean of $E_1$ and its 95\% credible band against the
+number of measurements $k$. Each $k$ uses the mean of $k$ \emph{independent}
+draws, so the band contracts as $1/\sqrt{k}$ and stays centred on the true value
+(dotted). Dashed grey is the prior 95\% interval --- the width the data has to
+beat.}
 \end{column}
 \end{columns}
 \end{frame}
