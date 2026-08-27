@@ -10,6 +10,8 @@
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds}
 
 \definecolor{luhblue}{RGB}{21,101,192}
 \definecolor{alertred}{RGB}{198,40,40}
@@ -102,22 +104,62 @@ For a response $Y=\mathcal{M}(\xi)$ with random inputs $\xi\in\mathbb{R}^d$:
   Y \approx \hat Y = \sum_{\alpha\in\mathcal A} c_\alpha \Psi_\alpha(\xi),
   \qquad P=\binom{d+p}{p}.
 \]
-\begin{itemize}
+\vspace{-0.4em}
+\begin{columns}[T]
+\begin{column}{0.46\textwidth}
+\small
+\begin{itemize}\itemsep2pt
   \item $\Psi_\alpha$: \textbf{Hermite} polynomials --- orthogonal w.r.t.\ the Gaussian measure.
-  \item Orthogonality $\Rightarrow$ mean $=c_0$, variance $=\sum_{\alpha\neq0}c_\alpha^2\,\mathbb{E}[\Psi_\alpha^2]$.
-  \item \textbf{Sobol indices follow analytically} from grouped squared coefficients --- no extra model runs.
+  \item The basis is \emph{fixed by the input measure}, not chosen.
+  \item It is the \textbf{orthogonality}, not the polynomial form, that pays.
 \end{itemize}
+\end{column}
+\begin{column}{0.52\textwidth}
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  box/.style={draw=luhblue,fill=luhblue!8,rounded corners=2pt,inner sep=3pt,minimum height=15pt},
+  res/.style={draw=alertred,fill=alertred!8,rounded corners=2pt,inner sep=3pt,minimum height=15pt},
+  ar/.style={-{Latex[length=4pt]},luhblue,thick}]
+  \node[box] (c0) {$c_0$};
+  \node[box,below=9pt of c0] (ca) {$c_\alpha,\ \alpha\neq 0$};
+  \node[res,right=26pt of c0] (mu) {mean};
+  \node[res,right=26pt of ca] (var) {variance $\sum c_\alpha^2\mathbb{E}[\Psi_\alpha^2]$};
+  \node[res,below=9pt of var] (sob) {Sobol $S_i$ (group by variable)};
+  \draw[ar] (c0) -- (mu);
+  \draw[ar] (ca) -- (var);
+  \draw[ar] (ca.south) |- (sob.west);
+\end{tikzpicture}\\[0.4em]
+{\footnotesize\color{alertred}\textbf{No extra model runs} --- all three come from the coefficients.}
+\end{column}
+\end{columns}
 \end{frame}
 \note{Here is the method. For a model response Y depending on a random input vector xi, polynomial chaos approximates Y as a finite sum of coefficients times orthogonal polynomial basis functions. For Gaussian inputs, those basis functions are Hermite polynomials. The crucial point is not the polynomial form but the orthogonality: because the basis is orthogonal with respect to the Gaussian measure, the coefficients are the spectral projections of the response. So the mean is read directly from the zeroth coefficient, and the variance from the sum of the remaining squared coefficients. The Sobol sensitivity indices then follow analytically, as partial sums of those squared coefficients grouped by the variables each term activates --- with no additional model evaluations. That is the decisive advantage of polynomial chaos over a generic regression surrogate.}
 
 \begin{frame}{Method: Smolyak sparse quadrature}
 \begin{columns}[T]
 \begin{column}{0.52\textwidth}
-Full tensor-product Gauss--Hermite quadrature needs $n_q^d$ points --- prohibitive in $d=5$.
-Smolyak sparse grids keep polynomial exactness while slashing the count.
-\vspace{0.5em}
+\small
+Full tensor-product quadrature needs $n_q^d$ points --- prohibitive at $d=5$.
+Smolyak combines low-order 1-D rules, keeping exactness on the
+\textbf{total-degree} space only.
+\vspace{0.4em}
 
-{\footnotesize Negative sparse weights handled by least-squares regression fallback.}
+\centering
+\begin{tikzpicture}[scale=0.30,font=\tiny]
+  \begin{scope}
+    \foreach \x in {1,...,7}\foreach \y in {1,...,7}
+      \fill[gray!55] (\x,\y) circle (0.20);
+    \node[below] at (4,0.1) {full tensor: $49$};
+  \end{scope}
+  \begin{scope}[xshift=9.5cm]
+    \foreach \x in {1,...,7} \fill[luhblue] (\x,4) circle (0.26);
+    \foreach \y in {1,...,7} \fill[luhblue] (4,\y) circle (0.26);
+    \foreach \p in {2,6}\foreach \q in {2,6} \fill[luhblue] (\p,\q) circle (0.26);
+    \node[below] at (4,0.1) {Smolyak: $17$};
+  \end{scope}
+\end{tikzpicture}\\[0.3em]
+{\footnotesize (2-D illustration --- the same idea at $d=5$.)}
 \end{column}
 \begin{column}{0.48\textwidth}
 \begin{table}
@@ -150,8 +192,31 @@ $t_n$    & cohesive strength           & 50 MPa        & 15\% & \\
 \bottomrule
 \end{tabular}
 \end{table}
-\vspace{0.3em}
-Independent \textbf{truncated-normal} variables, bounded at $[0.5\mu,\,1.5\mu]$ --- stiffnesses are strictly positive, and flight hardware is screened against inspection limits.
+\vspace{-0.2em}
+{\small Independent \textbf{truncated-normal} variables on $[0.5\mu,\,1.5\mu]$ --- stiffnesses
+and fracture energies are strictly positive, and flight hardware is screened against
+inspection limits.}
+\vspace{0.2em}
+
+\begin{columns}[T]
+\begin{column}{0.60\textwidth}
+{\footnotesize In $\sigma$-units the bound is $0.5/\mathrm{CoV}$, so the truncation is
+\textbf{practically inactive} for every input --- it guarantees positivity without
+reshaping the distribution.}
+\end{column}
+\begin{column}{0.38\textwidth}
+{\footnotesize
+\begin{tabular}{lcc}
+\toprule
+CoV & bound & mass cut \\
+\midrule
+5\,\% ($E_1$)   & $\pm10\sigma$   & $\sim0$ \\
+15\,\%          & $\pm3.3\sigma$  & $0.09\,\%$ \\
+20\,\% ($G_{Ic}$) & $\pm2.5\sigma$ & $1.2\,\%$ \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\end{columns}
 \end{frame}
 \note{The five uncertain parameters are these. The fiber-direction modulus E1, the in-plane shear modulus G12, the cohesive-zone normal stiffness Kn, the Mode-I fracture energy GIc, and the cohesive strength tn. They are modeled as independent truncated-normal variables, bounded between fifty and one hundred fifty percent of nominal. The truncation is deliberate: stiffnesses and fracture energies are strictly positive, so an unbounded Gaussian would assign probability to non-physical negative draws; and material accepted for flight hardware is screened against incoming-inspection limits, so extreme outliers are not representative. The assumed coefficients of variation follow the usual ordering for CFRP --- the fiber-dominated modulus E1 is the most tightly controlled at five percent, while the matrix and interface quantities are progressively more variable.}
 
@@ -175,8 +240,21 @@ Independent \textbf{truncated-normal} variables, bounded at $[0.5\mu,\,1.5\mu]$ 
 \end{itemize}
 \end{column}
 \end{columns}
-\vspace{0.3em}
-{\footnotesize Non-intrusive pipeline: patch \texttt{.inp} material cards $\to$ run Abaqus $\to$ extract QoIs $\to$ fit PCE.}
+\vspace{0.1em}
+\centering
+\begin{tikzpicture}[font=\scriptsize,node distance=8pt,
+  st/.style={draw=luhblue,fill=luhblue!8,rounded corners=2pt,inner sep=3.5pt,minimum height=16pt},
+  bb/.style={draw=alertred,fill=alertred!10,rounded corners=2pt,inner sep=3.5pt,minimum height=16pt,thick},
+  ar/.style={-{Latex[length=4pt]},luhblue,thick}]
+  \node[st] (a) {sparse-grid node $\xi^{(k)}$};
+  \node[st,right=of a] (b) {patch \texttt{.inp} cards};
+  \node[bb,right=of b] (c) {\textbf{Abaqus} (black box)};
+  \node[st,right=of c] (d) {read \texttt{.odb}};
+  \node[st,right=of d] (e) {fit $c_\alpha$};
+  \foreach \i/\j in {a/b,b/c,c/d,d/e} \draw[ar] (\i) -- (\j);
+  \draw[ar,dashed] (e.south) -- ++(0,-10pt) -| node[pos=0.25,below,font=\tiny]{$k=1\ldots66$} (a.south);
+\end{tikzpicture}\\[0.3em]
+{\footnotesize\color{alertred}\textbf{Non-intrusive:} only input files and output databases are touched --- no solver source is modified.}
 \end{frame}
 \note{}
 
@@ -212,7 +290,22 @@ $u^\text{max}$                        & 10.07 mm  & 0.178 mm  & 1.76\% & --- & -
 \bottomrule
 \end{tabular}
 \end{table}
-Degree 2 (66 runs) and degree 3 (286 runs) agree to \textbf{four significant figures} $\Rightarrow$ converged. Adhesive damage is \textbf{identically zero} across all 352 simulations.
+Degree 2 (66 runs) and degree 3 (286 runs) agree to \textbf{four significant figures}.
+\vspace{0.3em}
+
+\begin{columns}[T]
+\begin{column}{0.58\textwidth}
+{\small This is more than a convergence check --- it \emph{quantifies the curvature} of the
+response surface. Had higher-order terms mattered, the extra 220 simulations would have
+moved the standard deviation. They did not.}
+\end{column}
+\begin{column}{0.40\textwidth}
+\begin{alertblock}{}
+\footnotesize Degree 2 is the \textbf{correct model order}, not an economy measure.\\[0.2em]
+SDEG $\equiv 0$ in all \textbf{352} runs.
+\end{alertblock}
+\end{column}
+\end{columns}
 \end{frame}
 \note{Now the results. The response statistics are essentially identical between degree two, built from sixty-six runs, and degree three, built from two hundred eighty-six runs --- they agree to four significant figures. That confirms the expansion has converged at degree two. The peak von Mises stress has a mean of two hundred nine point seven megapascals, with a coefficient of variation of only one point one three percent. And notably, the adhesive damage variable is identically zero across all three hundred fifty-two simulations --- the cohesive interface never initiates damage at this load.}
 
@@ -231,6 +324,13 @@ $K_n,G_{Ic},t_n$ & $\approx 0$ & $\approx 0$ \\
 \end{tabular}
 \end{table}
 {\footnotesize $S_i\approx S_T^i$: inputs act additively, no resolvable interactions.}
+\vspace{0.5em}
+
+\begin{alertblock}{}
+\footnotesize The 5-D problem collapses to \textbf{effectively 1-D} in $E_1$.\\[0.2em]
+$G_{12}$ carries \emph{twice} the CoV of $E_1$ yet contributes $<1\%$ --- sensitivity, not
+scatter, sets the ranking.
+\end{alertblock}
 \end{column}
 \begin{column}{0.54\textwidth}
 \centering
@@ -266,21 +366,33 @@ $u^\text{max}$ (mm)                 & $4.2\times10^{-5}$ & $7.1\times10^{-5}$ & 
 \bottomrule
 \end{tabular}
 \end{table}
-\begin{itemize}\small
+\vspace{-0.2em}
+\begin{columns}[T]
+\begin{column}{0.58\textwidth}
+\begin{itemize}\small\itemsep2pt
   \item At $N=66$ both are accurate to $\sim10^{-3}$~MPa --- the NN marginally lower on this metric.
-  \item The difference is \textbf{stability}: NN error \textbf{grows} $25\times$ from 66 to 286 points (overfitting a smooth response), while PCE deg.~2 holds; deg.~3 is slightly \emph{worse} (over-parameterisation).
+  \item The difference is \textbf{stability}: NN error \textbf{grows} $25\times$ from 66 to 286
+        points, while PCE deg.~2 holds; deg.~3 is slightly \emph{worse}
+        (over-parameterisation).
   \item PCE returns Sobol indices analytically; the NN would need a separate Monte Carlo study.
 \end{itemize}
+\end{column}
+\begin{column}{0.40\textwidth}
+\centering
+\includegraphics[width=\linewidth]{t13_rmse_convergence.pdf}\\[-0.1em]
+{\tiny The NN curve turns \emph{upward} --- the overfitting signature.}
+\end{column}
+\end{columns}
 \end{frame}
 \note{How does polynomial chaos compare with a neural network trained on the same data? The polynomial-chaos expansion at degree two attains the lowest leave-one-out error of any configuration. Tellingly, degree three performs slightly worse --- fitting fifty-six coefficients to two hundred eighty-six points introduces estimation variance in redundant high-order terms, the classic symptom of mild over-parameterisation on an almost-linear response. The neural network shows the same pathology far more sharply: its out-of-sample error grows by an order of magnitude when the training set is enlarged from sixty-six to two hundred eighty-six points, because a fixed network with several thousand weights overfits when the underlying map is this smooth. This is not a generic claim that polynomial chaos beats neural networks; it is a statement about the match between method and problem. Polynomial chaos encodes a strong prior --- that the response is a low-order polynomial --- and when that prior is correct it extracts accurate statistics from very few samples and returns the sensitivity indices for free.}
 
 \begin{frame}{Reliability: a wide margin, and an unidentifiable interface}
 \begin{columns}[T]
-\begin{column}{0.5\textwidth}
+\begin{column}{0.56\textwidth}
 \centering
-\includegraphics[width=\linewidth]{reliability_margin.png}
+\includegraphics[width=1.06\linewidth]{reliability_margin.png}
 \end{column}
-\begin{column}{0.5\textwidth}
+\begin{column}{0.44\textwidth}
 \[
   P_f = P(\sigma_\text{vM}^\text{max}>1200) = 0,\quad \beta=\infty
 \]
@@ -297,9 +409,9 @@ $u^\text{max}$ (mm)                 & $4.2\times10^{-5}$ & $7.1\times10^{-5}$ & 
 \begin{frame}[t]{Extension T9: non-Gaussian KL random field for $E_1$}
 \begin{columns}[T]
 \begin{column}{0.54\textwidth}
-\small
+\footnotesize
 KL expansion of an anisotropic exponential kernel, then:
-\begin{itemize}\itemsep3pt
+\begin{itemize}\itemsep2pt
   \item Gaussian field admits \textbf{negative stiffness} $\Rightarrow$
         \textbf{translation field} $H=F^{-1}(\Phi(Z))$: lognormal, positive
         by construction.
