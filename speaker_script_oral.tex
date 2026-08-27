@@ -1,0 +1,393 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{newtxtext}
+\usepackage{setspace}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{parskip}
+
+\definecolor{luhblue}{RGB}{21,101,192}
+\definecolor{soft}{RGB}{245,247,250}
+
+\setstretch{1.25}
+\pagestyle{fancy}\fancyhf{}
+\lhead{\small SFEM oral examination --- speaking script}
+\rhead{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\newcounter{slidenum}
+\newcommand{\slide}[3]{%
+  \bigskip
+  \noindent\colorbox{luhblue}{\parbox{\dimexpr\linewidth-2\fboxsep}{%
+    \color{white}\bfseries\small SLIDE #1 \quad|\quad #2 \hfill #3}}\par
+  \nopagebreak\vspace{0.3em}}
+
+\newcommand{\num}[1]{\textbf{#1}}
+\newcommand{\pron}[2]{#1\,{\scriptsize\itshape[#2]}}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries Speaking Script}\\[0.3em]
+{\large Reliability Assessment of the JAXA H3 Fairing}\\[0.2em]
+{\normalsize Keisuke Nishioka \quad--\quad 28 August 2026, 9:30 \quad--\quad Room 226, Geb.\ 3403}
+\end{center}
+
+\vspace{0.5em}
+\begin{tcolorbox}[colback=soft,colframe=luhblue,boxrule=0.6pt,arc=2pt]
+{\bfseries Pronunciation --- the ones that trip people up}\\[0.3em]
+\pron{Hermite}{er-MEET, not her-mite} \quad
+\pron{stochastic}{sto-KAS-tik} \quad
+\pron{quadrature}{KWOD-ra-cher} \quad
+\pron{orthogonal}{or-THOG-o-nal}\\
+\pron{Karhunen--Lo\`{e}ve}{kar-HOO-nen lo-EV} \quad
+\pron{Smolyak}{SMOL-yak} \quad
+\pron{Sobol}{so-BOL} \quad
+\pron{eigenvalue}{EYE-gen-value}\\
+\pron{surrogate}{SUR-ro-gat} \quad
+\pron{cohesive}{ko-HEE-siv} \quad
+\pron{aleatory}{AY-lee-a-tory} \quad
+\pron{epistemic}{ep-i-STEE-mik} \quad
+\pron{anisotropic}{an-eye-so-TROP-ic}
+
+\smallskip
+{\bfseries Pace.} About \num{1{,}900} words for \num{15} minutes --- roughly \num{125}
+words a minute. That is deliberately unhurried. If you finish at 13 minutes, good:
+the ten minutes of questions is where the marks are.
+\end{tcolorbox}
+
+%----------------------------------------------------------
+\slide{1}{Title}{0:00 -- 0:20}
+
+Good morning. My name is Keisuke Nishioka, and I will present my project for the
+Stochastic Finite Element Methods course.
+
+The question is simple to state. The material properties of a composite fairing vary
+from manufacturing. How does that variability propagate into the structural response,
+and is the structure reliable?
+
+%----------------------------------------------------------
+\slide{2}{Motivation}{0:20 -- 1:05}
+The H3 payload fairing is a carbon-fibre skin bonded to an aluminium honeycomb core.
+
+The properties of both the laminate and the adhesive are inherently variable ---
+fibre volume fraction, cure cycle, adhesive film thickness. These uncertainties
+propagate into stress, damage and deflection, and therefore into reliability.
+
+A deterministic analysis at nominal properties cannot tell us how much of the computed
+margin is real, and how much is an artefact of the particular values we assumed.
+
+My goal is to quantify how five uncertain material parameters propagate to the
+structural response --- treating the existing Abaqus model as a black box.
+
+%----------------------------------------------------------
+\slide{3}{The structure}{1:05 -- 1:45}
+
+This is the structure. On the left, the H3 launch vehicle, with the fairing at the nose.
+
+The wall is a sandwich: a carbon-fibre skin, an aluminium-honeycomb core, a second skin,
+bonded with an adhesive that I model as a cohesive zone. Diameter \num{5.2} metres,
+skins \num{0.6} to \num{1.4} millimetres, core \num{8} millimetres.
+
+Variability lives in the skin stiffness and in the bond. Those are my five uncertain
+constants.
+
+%----------------------------------------------------------
+\slide{4}{Approach at a glance}{1:45 -- 2:25}
+Here is the whole approach on one slide.
+
+On the left, the five uncertain material parameters, each given as a distribution.
+In the middle, the deterministic finite-element model, which I evaluate at selected
+points. On the right, the two things I recover: the probability distribution of the
+peak stress, and the Sobol sensitivity indices.
+
+Everything that follows is detail on these three stages.
+
+%----------------------------------------------------------
+\slide{5}{Method --- Polynomial Chaos Expansion}{2:25 -- 3:25}
+
+For a response $Y$ depending on a random input vector, polynomial chaos approximates $Y$
+as a finite sum of coefficients times orthogonal polynomial basis functions. For Gaussian
+inputs those are Hermite polynomials --- the basis is fixed by the input measure, not
+chosen arbitrarily.
+
+The crucial point is not the polynomial form. It is the \textbf{orthogonality}.
+
+Because the basis is orthogonal, the coefficients are the spectral projections of the
+response. The mean is the zeroth coefficient. The variance is the sum of the remaining
+squared coefficients. And the Sobol indices follow analytically, as partial sums of those
+squared coefficients --- with \textbf{no additional model evaluations}.
+
+That is the decisive advantage over a generic regression surrogate.
+
+%----------------------------------------------------------
+\slide{6}{Method --- Smolyak sparse quadrature}{3:25 -- 4:15}
+
+To build the surrogate I evaluate the model at a set of design points.
+
+A full tensor grid needs $n$ to the power $d$ points: \num{243} runs at degree two,
+\num{1024} at degree three. Each run produces about \num{293} megabytes, so the
+sample count is the binding constraint.
+
+The Smolyak sparse grid retains exactness on the total-degree space at a fraction of that:
+\num{66} points at degree two, \num{286} at degree three.
+
+One practical note. Sparse rules generally produce negative weights, so I do not project
+--- I fit the coefficients by \textbf{least-squares regression}. With \num{66} points
+against \num{21} unknowns the system is over-determined, which also permits
+leave-one-out validation.
+
+%----------------------------------------------------------
+\slide{7}{Five uncertain parameters}{4:15 -- 5:00}
+
+These are the five parameters.
+
+Two are in the skin: the fibre-direction modulus $E_1$, at \num{146} gigapascals with a
+coefficient of variation of \num{5} percent, and the shear modulus $G_{12}$ at
+\num{10} percent.
+
+Three are in the cohesive law: normal stiffness, mode-one fracture energy, and strength,
+at \num{15} to \num{20} percent. That ordering is the usual one --- the
+fibre-dominated modulus is the most tightly controlled.
+
+I model them as truncated normals between \num{50} and \num{150} percent of nominal,
+because stiffnesses and fracture energies are strictly positive.
+
+%----------------------------------------------------------
+\slide{8}{FE model and quantities of interest}{5:00 -- 5:45}
+The deterministic model is an Abaqus/Standard model of a representative panel.
+
+The skin is an orthotropic elastic lamina. The honeycomb core is a homogenised
+linear-elastic continuum. The adhesive interface is a cohesive zone model with a
+Benzeggagh--Kenane mixed-mode damage law.
+
+The load is applied in two static steps: a pressure, then an incremental load.
+
+There are three quantities of interest: the peak von Mises stress in the skin, with a
+limit of \num{1200} megapascals; the maximum cohesive damage variable, SDEG; and
+the maximum displacement.
+
+The pipeline is fully non-intrusive. For each design point I patch the material cards in
+the input file, run Abaqus, and read the results out of the output database.
+
+%----------------------------------------------------------
+\slide{9}{One black-box evaluation}{5:45 -- 6:20}
+
+To make concrete what one evaluation looks like --- this is a von Mises stress field
+from an Abaqus output database of the full fairing.
+
+Each quadrature node corresponds to exactly one such deterministic solve. The stress
+concentrates around the access-door cutout.
+
+This global model is shown for context; the stochastic study itself wraps a
+representative sandwich panel of this structure.
+
+%----------------------------------------------------------
+\slide{10}{Result 1 --- convergence}{6:20 -- 7:05}
+Now the results.
+
+The response statistics are essentially identical between degree two and degree three.
+The peak stress is \num{209.7} megapascals in both cases, with a standard deviation
+of \num{2.375} against \num{2.378}. They agree to four significant figures.
+
+That is more than a convergence check. It quantifies the curvature of the response
+surface: if the response depended appreciably on higher-order terms, the additional
+\num{220} simulations would have moved the standard deviation. They did not.
+
+So degree two is not an economy measure. It is the \textbf{correct model order} for this
+response.
+
+And notably, the cohesive damage variable is identically zero in all
+\num{352} simulations.
+
+%----------------------------------------------------------
+\slide{11}{Result 2 --- Sobol indices}{7:05 -- 7:55}
+
+The sensitivity analysis gives a strikingly anisotropic picture.
+
+The fibre-direction modulus alone explains \num{99.2} percent of the variance in
+peak stress, and \num{99.95} percent of the variance in displacement.
+
+No other parameter reaches even the one-percent level. The shear modulus is the only
+secondary contributor, and it accounts for under one percent of the stress variance ---
+despite carrying twice the coefficient of variation of $E_1$.
+
+The three cohesive parameters register indices numerically indistinguishable from zero.
+
+And the first-order and total-order indices are essentially equal. That tells us the
+inputs act additively, with no resolvable interactions --- the signature of a response
+that is essentially linear over the sampled range.
+
+%----------------------------------------------------------
+\slide{12}{Why does $E_1$ dominate?}{7:55 -- 8:50}
+
+Why does one parameter dominate so completely?
+
+To first order, the output variance is the sum of squared sensitivity times input
+variance. Each parameter contributes through the \textbf{product} of its sensitivity and
+its scatter --- not either alone.
+
+The panel carries the pressure by membrane action, and for membrane action both the peak
+stress and the deflection are set by the axial laminate stiffness. So the response is
+close to linear in $E_1$, which makes the derivative large --- and $E_1$ still carries
+five percent scatter.
+
+The shear modulus is the counter-example: its scatter is twice as large, but the
+membrane-dominated kinematics make its derivative small.
+
+The ranking is governed not by which parameter is most uncertain, but by which uncertainty
+the structure amplifies.
+
+%----------------------------------------------------------
+\slide{13}{Result 3 --- PCE versus a neural network}{8:50 -- 9:45}
+
+How does polynomial chaos compare with a neural network on the same data?
+
+At \num{66} points both are accurate to about ten to the minus three megapascals ---
+and on this leave-one-out metric the network is in fact marginally lower.
+
+So accuracy at the design point is not the distinction. \textbf{Stability} is.
+
+Enlarging the training set from \num{66} to \num{286} points makes the network's
+error \emph{grow} by a factor of twenty-five: a network with several thousand weights
+overfits when the map is this smooth. Degree two holds; degree three is slightly worse,
+which is mild over-parameterisation.
+
+And the expansion returns the Sobol indices analytically. The network would need a
+separate Monte Carlo study.
+
+%----------------------------------------------------------
+\slide{14}{Reliability}{9:45 -- 10:40}
+
+Monte Carlo of a million realisations gives a failure probability of zero and an infinite
+reliability index. The mean stress sits about \num{416} standard deviations below the
+threshold.
+
+I want to state this carefully. A failure probability of \emph{exactly} zero should be read
+as \textbf{below the resolution of the analysis}, not as a guarantee. The Monte Carlo
+resolves only to about ten to the minus six, and the surrogate is valid only over the
+truncated input domain.
+
+There is also a consequence of the damage being identically zero. The three cohesive
+parameters are \textbf{structurally unidentifiable}: they never move any output, so no
+sampling could give them a non-zero index. The five-dimensional problem collapses, at this
+load, to effectively one dimension.
+
+%----------------------------------------------------------
+\slide{15}{Extension T9 --- non-Gaussian random field}{10:40 -- 11:50}
+
+The first extension relaxes the assumption that $E_1$ is a single number.
+
+I represent it as a random field, discretised by Karhunen--Lo\`{e}ve expansion with an
+anisotropic exponential kernel.
+
+A Gaussian field admits negative stiffness, which is not admissible. So I map it through a
+memoryless transform to obtain a \textbf{translation field} with a lognormal marginal ---
+positive by construction.
+
+The transform preserves rank correlation but \emph{not} linear correlation. At the five
+percent scatter of $E_1$ that distortion is only three times ten to the minus four, so
+here the practical gain is positivity rather than changed statistics. At sixty percent it
+reaches nearly four percent --- so non-Gaussian treatment matters for the interface
+parameters, not for $E_1$.
+
+Separately, spatial averaging cuts the effective panel modulus scatter from
+\num{7300} to about \num{4700} megapascals.
+
+I want to be careful here. That is an \textbf{input-side} result. For responses governed
+by average stiffness it means the scalar model is conservative. But the peak stress is a
+local extreme, and a heterogeneous field creates gradients that can raise the peak even as
+the average varies less. Settling that needs mapped realisations run through the solver,
+which I have not done.
+
+%----------------------------------------------------------
+\slide{16}{Extension T13 --- surrogate comparison}{11:50 -- 12:55}
+
+The second extension compares polynomial chaos, a Gaussian process and a neural network
+over training sets from ten to \num{286} points.
+
+I want to be upfront about what this can and cannot show. The reference response is itself
+a degree-two polynomial, so a degree-two expansion contains it exactly. The
+ten-to-the-minus-thirteen figure measures \textbf{exact representability} --- not
+generalisation error.
+
+The factor that \emph{is} meaningful is the roughly five hundred between the two
+data-driven surrogates.
+
+What the comparison measures is the value of a correct prior under a severe data budget.
+Had the reference contained a damage bifurcation, the ranking could reverse.
+
+One more point: the Gaussian process supplies an epistemic error estimate the expansion
+does not --- \num{0.008} megapascals against an aleatory scatter of \num{2.37}, that
+is \num{0.3} percent.
+
+%----------------------------------------------------------
+\slide{17}{Extension T6 --- Bayesian identification}{12:55 -- 13:55}
+
+The third extension turns the problem around.
+
+$E_1$ explains ninety-nine percent of the variance, so among the five parameters it is
+also the most identifiable from response measurements.
+
+I set this up as a conjugate Gaussian inverse problem, using the linear part of the
+expansion as the likelihood. Prior Gaussian, likelihood linear-Gaussian, so the posterior
+is closed-form --- no sampling and no new Abaqus runs. Each point uses the mean of $k$
+independent measurements, so the estimator is consistent.
+
+The posterior standard deviation falls from \num{7300} megapascals to \num{2582}
+at five measurements, \num{1885} at ten --- a \num{74} percent reduction --- and
+\num{1356} at twenty.
+
+I should be precise about what this reduces. It is \textbf{epistemic} uncertainty. The
+aleatory scatter between batches is untouched, and since the failure probability is
+already zero at a four-hundred-sixteen sigma margin, this does \emph{not} improve the
+reliability assessment. Its value is on the manufacturing side --- the dominant parameter
+is also the one cheap measurements can pin down, which is what tolerance allocation
+needs.
+
+%----------------------------------------------------------
+\slide{18}{Conclusions}{13:55 -- 15:00}
+
+To conclude.
+
+A degree-two expansion from \num{66} simulations captures the full response statistics,
+and I argue this is the correct model order --- not an economy measure.
+
+The actionable message is that the fibre-direction modulus controls more than ninety-nine
+percent of the structural variability. Tightening its quality control is by far the most
+effective lever.
+
+The extensions sharpen that picture: the translation field secures positivity, the
+surrogate comparison shows a correct prior beats flexibility at small sample sizes, and
+the Bayesian update shows the dominant parameter is also the identifiable one.
+
+I will end on the limitations. The zero failure probability is resolution-limited. The
+inputs are assumed independent. Only a single panel is modelled. And the random-field
+realisations were never propagated through the solver.
+
+The natural continuation is a load level that activates the cohesive zone, under a
+correlated input model.
+
+Thank you very much for your attention. I am happy to take questions.
+
+%----------------------------------------------------------
+\vspace{1em}
+\begin{tcolorbox}[colback=soft,colframe=luhblue,boxrule=0.6pt,arc=2pt]
+{\bfseries When you do not know the answer}\\[0.4em]
+``I don't know. I would have to check that --- my first guess would be \ldots, but I'd want
+to verify it before claiming anything.''\\[0.3em]
+``That's outside what I investigated. If I were to look into it, I would start by \ldots''\\[0.3em]
+``I can answer part of that. \ldots\ The rest I'm not sure about.''\\[0.3em]
+``Yes --- that's a limitation I'm aware of. The proper treatment would be \ldots''\\[0.3em]
+``You're right --- I hadn't considered that.''\\[0.5em]
+{\bfseries Buy time:} ``That's a good question --- let me think for a moment.''\\
+{\bfseries Clarify:} ``Do you mean \ldots\ or \ldots?''\\[0.5em]
+{\bfseries Never} answer confidently when unsure. A confident wrong answer costs more than
+an honest gap.
+\end{tcolorbox}
+
+\end{document}
